@@ -15,19 +15,28 @@ declare global {
 }
 
 /** Build a nested comment tree from a flat comments array */
-function buildCommentTree(flat: IComment[]): IComment[] {
-  const map = new Map<string, IComment>();
-  const roots: IComment[] = [];
+function buildCommentTree(flat: any[]): any[] {
+  const map = new Map<string, any>();
+  const roots: any[] = [];
 
-  // Clone each comment so we can mutate safely
+  // Clone each comment so we can mutate safely and ensure plain object structure
   for (const c of flat) {
-    map.set(c._id.toString(), { ...c, replies: [] });
+    const plain = typeof c.toObject === 'function' ? c.toObject() : c;
+    const normalized = {
+      ...plain,
+      _id: plain._id.toString(),
+      parentId: plain.parentId ? plain.parentId.toString() : null,
+      replies: []
+    };
+    map.set(normalized._id, normalized);
   }
 
   for (const c of flat) {
-    const node = map.get(c._id.toString())!;
+    const plain = typeof c.toObject === 'function' ? c.toObject() : c;
+    const commentId = plain._id.toString();
+    const node = map.get(commentId)!;
     if (node.parentId) {
-      const parent = map.get(node.parentId.toString());
+      const parent = map.get(node.parentId);
       if (parent) {
         parent.replies.push(node);
       } else {
@@ -94,7 +103,7 @@ export const getPostById = async (req: Request, res: Response): Promise<void> =>
 
     // Attach nested replies tree to the response
     const postObj = post.toObject();
-    (postObj as any).comments = buildCommentTree(post.comments as unknown as IComment[]);
+    (postObj as any).comments = buildCommentTree(postObj.comments);
 
     res.json(postObj);
   } catch (error) {
