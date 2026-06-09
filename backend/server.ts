@@ -28,6 +28,7 @@ import { requestLogger } from './utils/requestLogger.js';
 import { startEscalationScheduler, stopEscalationScheduler } from './controllers/escalationController.js';
 import { runScheduledAutoAnswer, stopAutoAnswerScheduler } from './controllers/autoAnswerController.js';
 import { runScheduledFAQAudit, stopFAQAuditScheduler } from './controllers/faqAuditController.js';
+import { retryFailedMeetings } from './services/retryService.js';
 import { runFreshnessCheck } from './controllers/freshnessController.js';
 import { runPromotionCycle } from './services/promotionService.js';
 import { getMetrics } from './utils/metrics.js';
@@ -316,11 +317,18 @@ if (process.env.NODE_ENV !== 'production') {
     const retentionInterval = setInterval(runRetention, RETENTION_INTERVAL_MS);
     runRetention().catch((e: Error) => logger.error(`Initial retention policy: ${e.message}`));
 
+    // Zoom retry scheduler — picks up failed meetings whose nextRetryAt has elapsed
+    const ZOOM_RETRY_INTERVAL_MS = parseInt(process.env.ZOOM_RETRY_INTERVAL_MS ?? '300000', 10); // 5 min default
+    const retryInterval = setInterval(() => {
+      retryFailedMeetings().catch((e: Error) => logger.error(`[retry] ${e.message}`));
+    }, ZOOM_RETRY_INTERVAL_MS);
+
     // Clean up on shutdown
     const cleanup = () => {
       clearInterval(promotionInterval);
       clearInterval(freshnessInterval);
       clearInterval(retentionInterval);
+      clearInterval(retryInterval);
       stopEscalationScheduler();
       stopAutoAnswerScheduler();
       stopFAQAuditScheduler();
