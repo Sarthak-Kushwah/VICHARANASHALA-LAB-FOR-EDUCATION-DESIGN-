@@ -122,14 +122,20 @@ export default function Navbar() {
           </span>
         </NavLink>
 
-        {/* Center Pill Group (Desktop) — Floating below to avoid horizontal conflicts */}
-        <div className="hidden lg:flex items-center gap-1.5 px-1.5 py-[5px] rounded-full border-[1.5px] border-border bg-card/80 backdrop-blur-[24px] absolute left-1/2 -translate-x-1/2 top-[calc(100%-8px)] shadow-md transition-all duration-300 hover:bg-card/90">
+        {/* Center Pill Group (Desktop) — Vertically centered in the
+            navbar. Hidden on lg, shown on xl so it doesn't fight
+            with the right-side controls (Ask Question + SP + bell +
+            avatar) for horizontal space. */}
+        <div className="hidden xl:flex items-center gap-1 px-2 py-1 rounded-full border-[1.5px] border-border/60 bg-card/85 backdrop-blur-[20px] shadow-subtle absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hover:bg-card/95">
           {allNavItems.map(({ label, to, xlOnly }) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/'}
               className={({ isActive }) =>
+                // Active = solid sage pill with white text.
+                // Inactive = transparent, ink-soft, hover lifts to ink.
+                // transition-all duration-200 = smooth hover.
                 `nav-pill ${isActive ? 'active' : ''} ${xlOnly ? 'hidden xl:inline-flex' : ''}`
               }
             >
