@@ -22,6 +22,10 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
 import adminApi from '../utils/adminApi';
+// v1.69 — Phase 8 admin UI: real interactive widget for the
+// per-program feature flag toggle. Replaces the previous
+// placeholder curl snippet on the Features tab.
+import ProgramFeatureFlagsTab from '../components/program/ProgramFeatureFlagsTab';
 
 type Tab = 'overview' | 'settings' | 'courses' | 'members' | 'ai' | 'zoom' | 'discord' | 'features' | 'support';
 
@@ -329,22 +333,14 @@ function DiscordTab({ programId: _programId }: { programId: string }) {
   );
 }
 
-function FeaturesTab({ programId: _programId }: { programId: string }) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-6 space-y-3">
-      <p className="text-sm text-ink-soft">
-        Per-program feature flag overrides. The resolver chain is
-        (per-program override → global default). Toggle a flag to override
-        it for this program.
-      </p>
-      <code className="block text-[11px] bg-mist rounded-md p-2 text-ink-soft break-all">
-        GET /api/admin/programs/{_programId}/feature-flags
-      </code>
-      <code className="block text-[11px] bg-mist rounded-md p-2 text-ink-soft break-all">
-        PUT /api/admin/programs/{_programId}/feature-flags/&lt;key&gt;  body: {'{ enabled: boolean }'}
-      </code>
-    </div>
-  );
+function FeaturesTab({ programId }: { programId: string }) {
+  // v1.69 — Phase 8 admin UI: the placeholder curl snippet has
+  // been replaced with a real interactive widget. The
+  // per-program feature flag toggle lives in
+  // ProgramFeatureFlagsTab; it calls the GET / PUT / DELETE
+  // endpoints that were added when the resolver chain was
+  // shipped in Phase 8.
+  return <ProgramFeatureFlagsTab programId={programId} />;
 }
 
 function SupportTab({ programId: _programId }: { programId: string }) {
