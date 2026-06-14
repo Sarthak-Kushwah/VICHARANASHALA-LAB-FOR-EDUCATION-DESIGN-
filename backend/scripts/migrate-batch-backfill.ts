@@ -18,6 +18,10 @@ import Batch from '../models/Batch.js';
 import FAQ from '../models/FAQ.js';
 import Category from '../models/Category.js';
 import GuestEvent from '../models/GuestEvent.js';
+import { defaultSettings } from '../utils/program/defaultSettings.js';
+import ProgramSettings from '../models/ProgramSettings.js';
+import AiConfig from '../models/AiConfig.js';
+import FeatureFlag from '../models/FeatureFlag.js';
 import CommunityPost from '../models/CommunityPost.js';
 import { ZoomMeeting } from '../models/ZoomMeeting.js';
 import DocumentInsight from '../models/DocumentInsight.js';
@@ -30,7 +34,6 @@ import Notification from '../models/Notification.js';
 import TeaNotification from '../models/TeaNotification.js';
 import SupportRequest from '../models/SupportRequest.js';
 import AiQuestion from '../models/AiQuestion.js';
-import ProgramSettings, { defaultSettings } from '../models/ProgramSettings.js';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -109,7 +112,27 @@ async function main(): Promise<void> {
   }
   console.log(`  ✓ Created ProgramSettings for ${settingsCreated} batch(es)`);
 
-  console.log(`\nDone. ${total} document(s) backfilled across ${TARGETS.length} collection(s); ${settingsCreated} ProgramSettings created.`);
+  // v1.69 — Phase 4: backfill AiConfig.batchId. The pre-Phase-4
+  // schema had no batchId field at all; the existing doc is the
+  // global default. Setting batchId:null makes the resolver
+  // chain work (per-program override → global default).
+  console.log(`\n[5/5] Backfilling AiConfig + FeatureFlag scopes...`);
+  const aiConfigResult = await AiConfig.updateMany(
+    { batchId: { $exists: false } },
+    { $set: { batchId: null } }
+  );
+  console.log(`  ✓ AiConfig: ${aiConfigResult.modifiedCount} doc(s) backfilled (batchId: null)`);
+
+  // v1.69 — Phase 8: same for FeatureFlag. The legacy doc was a
+  // global default with no batchId — backfill so the per-program
+  // override chain finds the right fallback.
+  const featureFlagResult = await FeatureFlag.updateMany(
+    { batchId: { $exists: false } },
+    { $set: { batchId: null } }
+  );
+  console.log(`  ✓ FeatureFlag: ${featureFlagResult.modifiedCount} doc(s) backfilled (batchId: null)`);
+
+  console.log(`\nDone. ${total} document(s) backfilled across ${TARGETS.length} collection(s); ${settingsCreated} ProgramSettings created; ${aiConfigResult.modifiedCount + featureFlagResult.modifiedCount} per-program scope(s) backfilled.`);
   process.exit(0);
 }
 
