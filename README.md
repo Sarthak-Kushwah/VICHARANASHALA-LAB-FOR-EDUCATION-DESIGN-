@@ -49,10 +49,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the architecture deep-dive 
 
 ```bash
 ./run.sh        # Full-stack runner: env setup, ngrok, backend + frontend
-# OR
-cd backend && npm run dev    # tsx server.ts on :6767
-cd frontend && npm run dev   # Vite on :5173
-cd backend && npm run seed   # 130 FAQs + users
 ```
 
 `run.sh` prompts for `MONGODB_URI` and `JWT_SECRET` on first run, then saves them to `backend/.env.local`. The script will not overwrite existing values. Session logs are written to `logs/session_*.txt`.
@@ -109,14 +105,11 @@ For per-route behaviour and field schemas, see [docs/ARCHITECTURE.md](docs/ARCHI
 ## Project Structure
 
 ```
-Samagama/
+Shamagama/
 ├── backend/           # Express + TypeScript API
 ├── frontend/          # React + Vite SPA
-├── docs/              # Full documentation
-├── run.sh             # Local dev runner (env setup, ngrok, backend + frontend)
-├── CONTRIBUTING.md
-├── CODE_OF_CONDUCT.md
-└── LICENSE
+├── docs/              # Full documentation      
+└── run.sh             # Local dev runner (env setup, ngrok, backend + frontend)
 ```
 
 ---
