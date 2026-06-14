@@ -28,6 +28,7 @@ import batchRoutes from './routes/batch.js';
 import programRoutes from './routes/program.js';
 import adminProgramSettingsRoutes from './routes/adminProgramSettings.js';
 import programZoomRoutes from './routes/programZoom.js';
+import programDiscordRoutes from './routes/programDiscord.js';
 import courseRoutes from './routes/course.js';
 import enrollmentRoutes from './routes/enrollment.js';
 import supportRoutes from './routes/support.js';
@@ -41,6 +42,10 @@ import { adminRouter as appSettingsAdminRouter, publicRouter as appSettingsPubli
 import { ingestFrontendLog } from './utils/http/fileLogger.js';
 import { logger, startupLog, shutdownLog, cronLog, queueLog } from './utils/http/logger.js';
 import { startBot, stopBot } from './bot/discordBot.js';
+// v1.69 — Phase 6: per-program bot manager. Coexists with the
+// legacy env-var-backed global bot (still useful for
+// single-tenant dev mode or an org-wide alert channel).
+import { botManager } from './bot/botManager.js';
 import { requestLogger } from './utils/http/requestLogger.js';
 import { startEscalationScheduler, stopEscalationScheduler } from './controllers/escalationController.js';
 import { runScheduledAutoAnswer, stopAutoAnswerScheduler } from './controllers/autoAnswerController.js';
@@ -202,6 +207,7 @@ app.use('/api/batches', batchRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/admin/programs', adminProgramSettingsRoutes);
 app.use('/api/admin/programs', programZoomRoutes);
+app.use('/api/admin/programs', programDiscordRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api', enrollmentRoutes);
 app.use('/api/support', supportRoutes);
@@ -400,7 +406,15 @@ if (process.env.NODE_ENV !== 'production') {
     // slash commands on ready, listens for /ask, /search,
     // /status, /help, and admin-only /tickets, /resolve,
     // /ban, /broadcast.
+    // v1.69 — Phase 6: start the legacy env-var-backed global
+    // bot (if configured) and then start every per-program
+    // Discord bot from ProgramConfig.discord. The legacy bot
+    // and the per-program fleet are intentionally independent —
+    // a single-tenant dev mode keeps the legacy client; a
+    // multi-tenant production deploy flips Discord_BOT_TOKEN
+    // off and lets botManager do all the work.
     void startBot().catch((err) => logger.error(`[bot] startup: ${(err as Error).message}`));
+    void botManager.startAll().catch((err) => logger.error(`[botManager] startAll: ${(err as Error).message}`));
 
     // Start promotion scheduler — every 15 minutes, idempotent
     const promotionInterval = setInterval(runPromotionCycle, 15 * 60 * 1000);
@@ -495,6 +509,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
   // v1.68 — stop the Discord bot
   await stopBot();
+  // v1.69 — Phase 6: also stop every per-program bot instance
+  // managed by botManager.
+  await botManager.stopAll();
 
   // Close MongoDB connection
   await mongoose.connection.close();
