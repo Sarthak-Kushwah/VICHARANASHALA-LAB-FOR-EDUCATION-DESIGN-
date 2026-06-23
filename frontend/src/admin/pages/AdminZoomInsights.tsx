@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import adminApi from '../utils/adminApi';
+import { timeAgo } from '../../utils/time';
 
 interface ZoomInsight {
   _id: string;
@@ -26,14 +27,6 @@ interface InsightsResponse {
 type StatusFilter = 'all' | 'pending_review' | 'approved' | 'rejected';
 type TypeFilter = 'all' | 'FAQ' | 'Announcement';
 
-function timeAgo(d: string): string {
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function TypeBadge({ type }: { type: ZoomInsight['type'] }) {
   return (

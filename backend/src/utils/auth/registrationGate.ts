@@ -11,7 +11,8 @@
  *
  * Enforces the v1.70 controlled-registration spec:
  *   - registrationEnabled must be true (admin toggle)
- *   - the caller must supply the current inviteToken
+ *   - either the caller supplies the current inviteToken, OR the
+ *     admin has flipped the `openForAll` flag (anyone can register)
  *
  * Token comparison uses `crypto.timingSafeEqual` against the stored
  * plaintext token. The plaintext storage is intentional — see the
@@ -56,13 +57,20 @@ export async function checkRegistrationAllowed(
   // Defensive: if the singleton was never created (e.g. seed skipped),
   // deny rather than allow by default.
   const config = await RegistrationConfig.findById('singleton')
-    .select('registrationEnabled inviteToken')
+    .select('registrationEnabled openForAll inviteToken')
     .lean();
   if (!config) {
     return { ok: false, reason: 'disabled' };
   }
   if (!config.registrationEnabled) {
     return { ok: false, reason: 'disabled' };
+  }
+  // v1.7x — "Open for all" mode. When the admin has flipped this on,
+  // anyone with a valid email + password may register without an
+  // `?token=...` invite link. The stored inviteToken is left alone so
+  // the admin can flip the mode back without regenerating.
+  if (config.openForAll) {
+    return { ok: true };
   }
   if (!providedToken) {
     return { ok: false, reason: 'missing_token' };

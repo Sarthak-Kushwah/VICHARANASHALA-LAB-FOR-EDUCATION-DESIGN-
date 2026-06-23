@@ -100,7 +100,6 @@ const aiConfigSchema = new Schema<IAiConfig>(
       type: Schema.Types.ObjectId,
       ref: 'Batch',
       default: null,
-      index: true,
     },
     activeProvider: {
       type: String,

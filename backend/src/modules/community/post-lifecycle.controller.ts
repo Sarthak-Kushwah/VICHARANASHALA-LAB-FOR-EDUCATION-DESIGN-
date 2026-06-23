@@ -253,7 +253,7 @@ export const setPostDNA = async (req: Request, res: Response): Promise<void> => 
     };
 
     // v1.68 — H3 fix: atomic $set on the dna subdoc.
-    await CommunityPost.findOneAndUpdate(
+    const updatedPost = await CommunityPost.findOneAndUpdate(
       { _id: post._id },
       {
         $set: {
@@ -265,9 +265,10 @@ export const setPostDNA = async (req: Request, res: Response): Promise<void> => 
           },
         },
       },
+      { new: true }
     );
 
-    res.json({ message: 'DNA updated.', dna: post.dna });
+    res.json({ message: 'DNA updated.', dna: updatedPost?.dna });
   } catch (error) {
     communityLog.error(`[post] setPostDNA failed: ${(error as Error).message}`);
     res.status(500).json({ message: 'Server error' });
@@ -294,12 +295,13 @@ export const setPostTags = async (req: Request, res: Response): Promise<void> =>
     if (!Array.isArray(tags)) { res.status(400).json({ message: 'tags must be an array.' }); return; }
 
     // v1.68 — H3 fix: atomic $set on the tags array.
-    await CommunityPost.findOneAndUpdate(
+    const updatedPost = await CommunityPost.findOneAndUpdate(
       { _id: post._id },
       { $set: { tags: tags.map((t: string) => t.trim().toLowerCase()).filter(Boolean) } },
+      { new: true }
     );
 
-    res.json({ message: 'Tags updated.', tags: post.tags });
+    res.json({ message: 'Tags updated.', tags: updatedPost?.tags });
   } catch (error) {
     communityLog.error(`[post] setPostTags failed: ${(error as Error).message}`);
     res.status(500).json({ message: 'Server error' });

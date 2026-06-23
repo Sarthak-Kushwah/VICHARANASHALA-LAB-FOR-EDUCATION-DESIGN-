@@ -6,11 +6,21 @@ import { validateBody, registerSchema, loginSchema, updateProfileSchema, changeP
 // v1.70 — Controlled-registration gate. Mounted BEFORE validateBody so
 // closed/invalid-token requests 403 before the Zod schema runs.
 import { registrationGate } from '../../utils/auth/registrationGate.js';
+// v1.7x — Public registration-status endpoint (no auth, no rate limit
+// because it's a single tiny read; the AuthModal calls it on mount of
+// the register tab to render the right copy).
+import { publicGetRegistrationStatus } from '../program/registration-control.controller.js';
 
 const router = Router();
 
 // POST /api/auth/register (Public) — rate-limited, gated, validated
 router.post('/register', registerLimiter, registrationGate, validateBody(registerSchema), register);
+
+// GET /api/auth/registration-status (Public) — used by the AuthModal
+// to render "closed / invite required / open" copy without forcing the
+// user to submit and discover via a 403. Returns only `enabled` +
+// `openForAll` — never the invite token or link.
+router.get('/registration-status', publicGetRegistrationStatus);
 
 // POST /api/auth/login (Public) — rate-limited, validated
 router.post('/login', loginLimiter, validateBody(loginSchema), login);

@@ -403,9 +403,9 @@ export default function AdminAISettings() {
         </div>
         <div className="p-5 grid grid-cols-3 gap-4">
           {[
-            { label: 'Total Requests', value: config?.usage.totalRequests.toLocaleString() ?? '0' },
-            { label: 'Estimated Cost (USD)', value: `$${(config?.usage.totalEstimatedCost ?? 0).toFixed(4)}` },
-            { label: 'Last Reset', value: config?.usage.lastResetAt ? new Date(config.usage.lastResetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—' },
+            { label: 'Total Requests', value: config?.usage?.totalRequests?.toLocaleString() ?? '0' },
+            { label: 'Estimated Cost (USD)', value: `$${(config?.usage?.totalEstimatedCost ?? 0).toFixed(4)}` },
+            { label: 'Last Reset', value: config?.usage?.lastResetAt ? new Date(config.usage.lastResetAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—' },
           ].map(s => (
             <div key={s.label} className="admin-stat-mini text-center p-3">
               <p className="text-2xl font-bold text-ink">{s.value}</p>

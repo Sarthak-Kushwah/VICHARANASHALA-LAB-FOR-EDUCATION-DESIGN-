@@ -45,10 +45,25 @@ export interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // H4: validate the cached user shape before trusting it. A tampered or
+  // stale localStorage value would crash the entire app on first render.
+  // We require a non-empty `_id` or `email` string — minimum signal that
+  // it's a real user record. Otherwise treat as logged-out.
   const [user, setUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('yaksha_user');
-      return saved ? (JSON.parse(saved) as User) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved) as User;
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        !(typeof parsed._id === 'string' && parsed._id.length > 0) &&
+          !(typeof parsed.email === 'string' && parsed.email.length > 0)
+      ) {
+        localStorage.removeItem('yaksha_user');
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -94,6 +109,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // H2: also listen for the same-tab `auth:logout` event fired by api.ts's
+  // 401 interceptor. The `storage` event only fires across tabs, so without
+  // this, a 401 in the same tab would clear localStorage but leave the
+  // React user state stale (UI still shows logged-in, every click triggers
+  // another 401 + auth modal). This makes the in-tab logout instant.
+  useEffect(() => {
+    const handleAuthLogout = () => setUser(null);
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+  }, []);
+
   const login = async (email: string, password: string): Promise<User> => {
     const res = await api.post('/auth/login', { email, password });
     const { token, user: loggedInUser } = res.data as { token: string; user: User };
@@ -134,10 +160,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await api.get('/auth/me');
       const updatedUser = res.data.user as User;
+      // L2: don't leak raw server output to console — keep debugging
+      // info in the existing /api/log endpoint instead (api.ts interceptor
+      // already sends a structured log there for every request).
+      if (!updatedUser) return;
       localStorage.setItem('yaksha_user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-    } catch (error) {
-      console.error('Failed to fetch user', error);
+    } catch {
+      // Surface handled inside api.ts interceptor; user state stays as-is.
     }
   };
 

@@ -18,7 +18,7 @@
  *   §8  Audit log on every action.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import adminApi from '../utils/adminApi';
 
 interface GoldenTicket {
@@ -133,6 +133,10 @@ export default function AdminGoldenTickets(): React.ReactElement {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // H23: success/info notice (replaces window.alert). Same colour treatment
+  // as `error` but tuned for positive info.
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [banConfirmId, setBanConfirmId] = useState<string | null>(null);
   const [banReason, setBanReason] = useState('');
@@ -189,8 +193,10 @@ export default function AdminGoldenTickets(): React.ReactElement {
       setRejectReason('');
       const p = res.data.penalty;
       if (p > 0) {
-        // eslint-disable-next-line no-alert
-        window.alert(`Ticket rejected. 1.25x penalty of ${p} SP debited.`);
+        // H23: replaced window.alert with inline notice banner.
+        setNotice(`Ticket rejected. 1.25x penalty of ${p} SP debited.`);
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = setTimeout(() => setNotice(null), 5000);
       }
       await fetchTickets();
     } catch (e) {
@@ -209,8 +215,10 @@ export default function AdminGoldenTickets(): React.ReactElement {
       );
       setBanConfirmId(null);
       setBanReason('');
-      // eslint-disable-next-line no-alert
-      window.alert(`Ticket banned+rejected. Penalty: ${res.data.penalty} SP. 72h ban until ${new Date(res.data.bannedUntil).toLocaleString()}.`);
+      // H23: replaced window.alert with inline notice banner.
+      setNotice(`Ticket banned+rejected. Penalty: ${res.data.penalty} SP. 72h ban until ${new Date(res.data.bannedUntil).toLocaleString()}.`);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = setTimeout(() => setNotice(null), 5000);
       await fetchTickets();
     } catch (e) {
       setError('Could not ban and reject ticket.');
@@ -219,8 +227,32 @@ export default function AdminGoldenTickets(): React.ReactElement {
     }
   }
 
+  // Cleanup notice timer on unmount.
+  useEffect(() => () => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+  }, []);
+
   return (
     <div className="space-y-5 max-w-5xl">
+      {/* H23 — success/info notice banner (replaces window.alert). */}
+      {notice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
+        >
+          {error}
+        </div>
+      )}
       <header>
         <p className="text-sm text-ink-faint -mt-2">
           Golden tickets live separately from the Support inbox. Sorted by the user's Spurti Points balance — high-priority triage first.

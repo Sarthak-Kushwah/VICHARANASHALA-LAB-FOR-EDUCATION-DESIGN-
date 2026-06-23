@@ -372,6 +372,13 @@ export const deletePost = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
+    const isAuthor = post.author.toString() === req.user!._id.toString();
+    const isPrivileged = ['admin', 'moderator'].includes(req.user!.role);
+    if (!isAuthor && !isPrivileged) {
+      res.status(403).json({ message: 'Forbidden: you cannot delete this post.' });
+      return;
+    }
+
     const postTitle = post.title;
     const authorId = post.author;
 
@@ -403,3 +410,87 @@ export const deletePost = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// PATCH /api/community/:id — Update a community post (Author or Admin/Moderator only)
+export const updatePost = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ message: 'Not authorized' }); return; }
+  try {
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post) {
+      res.status(404).json({ message: 'Post not found.' });
+      return;
+    }
+
+    const programContext = req.programContext;
+    if (programContext) {
+      const postBatch = (post as { batchId?: Types.ObjectId | string | null }).batchId;
+      if (!postBatch || postBatch.toString() !== programContext.batchId) {
+        res.status(404).json({ message: 'Post not found.' });
+        return;
+      }
+    }
+
+    const isAuthor = post.author.toString() === req.user!._id.toString();
+    const isPrivileged = ['admin', 'moderator'].includes(req.user!.role);
+    if (!isAuthor && !isPrivileged) {
+      res.status(403).json({ message: 'Forbidden: you cannot edit this post.' });
+      return;
+    }
+
+    if (post.isLocked && !isPrivileged) {
+      res.status(403).json({ message: 'This post is locked. Edits are disabled.' });
+      return;
+    }
+
+    const { title, body, tags } = req.body as {
+      title?: string;
+      body?: string;
+      tags?: string[];
+    };
+
+    if (title !== undefined) {
+      if (!title.trim()) {
+        res.status(400).json({ message: 'Title is required.' });
+        return;
+      }
+      post.title = sanitizeHtml(title.trim());
+    }
+
+    if (body !== undefined) {
+      if (!body.trim()) {
+        res.status(400).json({ message: 'Body is required.' });
+        return;
+      }
+      post.body = sanitizeHtml(body.trim());
+    }
+
+    if (tags !== undefined) {
+      post.tags = Array.isArray(tags)
+        ? tags.map((t: unknown) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 3)
+        : [];
+    }
+
+    // Recalculate embedding if title or body changes
+    if (title !== undefined || body !== undefined) {
+      try {
+        post.embedding = await generateEmbedding(`Question: ${post.title}. Description: ${post.body}`);
+      } catch (err) {
+        communityLog.warn(`Failed to generate embedding for updated post: ${(err as Error).message}`);
+      }
+    }
+
+    await post.save();
+    await post.populate('author', 'name');
+
+    // Invalidate search cache so updated post reflects immediately
+    await invalidateCache().catch((err) => {
+      communityLog.warn(`[post] Failed to invalidate cache on post edit: ${(err as Error).message}`);
+    });
+
+    res.json({ post });
+  } catch (error) {
+    communityLog.error(`[post] updatePost failed: ${(error as Error).message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+

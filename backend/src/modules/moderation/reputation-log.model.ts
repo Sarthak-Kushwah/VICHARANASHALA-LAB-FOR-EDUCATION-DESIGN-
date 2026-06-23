@@ -36,8 +36,33 @@ const reputationLogSchema = new MongooseSchema<IReputationLog>({
   // mis-classifying the log entry.
   targetType: {
     type: String,
-    enum: ['faq', 'comment', 'post', 'support', 'document'] as
-      ('faq' | 'comment' | 'post' | 'support' | 'document')[],
+    enum: [
+      'faq',
+      'comment',
+      'post',
+      'support',
+      'document',
+      'community_post',
+      'badge',
+      'faq_promotion',
+      'spurti_point_ledger',
+      'system',
+      'support_request',
+      'user',
+    ] as (
+      | 'faq'
+      | 'comment'
+      | 'post'
+      | 'support'
+      | 'document'
+      | 'community_post'
+      | 'badge'
+      | 'faq_promotion'
+      | 'spurti_point_ledger'
+      | 'system'
+      | 'support_request'
+      | 'user'
+    )[],
   },
   awardedBy: { type: MongooseSchema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

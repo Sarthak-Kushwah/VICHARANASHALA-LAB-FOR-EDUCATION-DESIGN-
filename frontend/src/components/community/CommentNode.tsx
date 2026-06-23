@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import api, { friendlyError } from '../../utils/api';
+import { idMatches } from '../../utils/idMatch';
 import Avatar from '../ui/Avatar';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -11,8 +12,10 @@ interface CommentNodeProps {
   postId: string;
   currentUserId: string;
   userRole: string;
+  postAuthorId?: string;
   onReplyAdded: (newComment: Comment, parentId: string | null) => void;
   onCommentDeleted?: (commentId: string, parentId: string | null) => void;
+  onPostUpdated?: (updatedPost: any) => void;
   depth?: number;
   threadColor?: string;
   barColor?: string;
@@ -39,8 +42,10 @@ export default function CommentNode({
   postId,
   currentUserId,
   userRole,
+  postAuthorId,
   onReplyAdded,
   onCommentDeleted,
+  onPostUpdated,
   depth = 0,
   threadColor,
   barColor,
@@ -49,6 +54,15 @@ export default function CommentNode({
   const [replyText, setReplyText] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyLoading, setReplyLoading] = useState(false);
+  // H6 — ref guard. State has a race window between keypress and setReplyLoading(true)
+  // committing where a second Enter can pass the guard.
+  const replyInFlightRef = useRef(false);
+  const replyFormRef = useRef<HTMLFormElement>(null);
+  // H13 — fallback local override when the parent doesn't pass onCommentUpdated.
+  // The verify toggle mutates the comment object's verified field; we hold
+  // a local override so the badge flips immediately while the parent eventually
+  // re-renders with the server-confirmed value.
+  const [localVerified, setLocalVerified] = useState<boolean | null>(null);
   const [localReplies, setLocalReplies] = useState<Comment[]>(comment.replies ?? []);
   const [localUpvotes, setLocalUpvotes] = useState(comment.upvotes ?? []);
   const [localDownvotes, setLocalDownvotes] = useState(comment.downvotes ?? []);
@@ -61,9 +75,9 @@ export default function CommentNode({
 
   // Derived values that canEdit/canDelete depend on
   const isExpert = comment.isExpertAnswer;
-  const isVerified = comment.verified;
+  const isVerified = localVerified !== null ? localVerified : !!comment.verified;
   const isFirstResponder = comment.isFirstResponder;
-  const isAuthor = comment.author?._id?.toString() === currentUserId || comment.author?._id === currentUserId;
+  const isAuthor = idMatches(comment.author?._id, currentUserId);
   const canEdit = isAuthor && !isExpert && !isVerified;
   const canDelete = isAuthor || userRole === 'admin' || userRole === 'moderator';
 
@@ -75,10 +89,10 @@ export default function CommentNode({
   const cDownvotes  = localDownvotes.length;
   const netScore    = cUpvotes - cDownvotes;
   const hasUpvoted  = localUpvotes.some(u =>
-    (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+    idMatches(u, currentUserId)
   );
   const hasDownvoted = localDownvotes.some(u =>
-    (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+    idMatches(u, currentUserId)
   );
   const commentOpacity = netScore >= 0 ? 1 : Math.max(0.15, 1 - Math.abs(netScore) * 0.2);
   const totalReplies = countReplies(comment) + localReplies.length;
@@ -89,26 +103,26 @@ export default function CommentNode({
     const previousUpvotes = localUpvotes;
     const previousDownvotes = localDownvotes;
     const isUpvoted = previousUpvotes.some(u =>
-      (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+      idMatches(u, currentUserId)
     );
 
     setLocalUpvotes(prev =>
       isUpvoted
-        ? prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() !== currentUserId)
+        ? prev.filter(u => idMatches(u, currentUserId))
         : [...prev, currentUserId]
     );
     setLocalDownvotes(prev =>
-      prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() !== currentUserId)
+      prev.filter(u => idMatches(u, currentUserId))
     );
 
     api.post<{ upvotedByMe: boolean }>(`/community/${postId}/comments/${comment._id}/upvote`)
       .then(res => {
         setLocalUpvotes(res.data.upvotedByMe
-          ? [...(localUpvotes.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)), currentUserId]
-          : localUpvotes.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)
+          ? [...(localUpvotes.filter(u => idMatches(u, currentUserId))), currentUserId]
+          : localUpvotes.filter(u => idMatches(u, currentUserId))
         );
         setLocalDownvotes(prev =>
-          prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)
+          prev.filter(u => idMatches(u, currentUserId))
         );
       })
       .catch(() => {
@@ -125,16 +139,16 @@ export default function CommentNode({
     const previousUpvotes = localUpvotes;
     const previousDownvotes = localDownvotes;
     const isDownvoted = previousDownvotes.some(u =>
-      (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+      idMatches(u, currentUserId)
     );
 
     setLocalDownvotes(prev =>
       isDownvoted
-        ? prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() !== currentUserId)
+        ? prev.filter(u => idMatches(u, currentUserId))
         : [...prev, currentUserId]
     );
     setLocalUpvotes(prev =>
-      prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() !== currentUserId)
+      prev.filter(u => idMatches(u, currentUserId))
     );
 
     api.post<{ deleted?: boolean; downvotedByMe: boolean }>(
@@ -147,11 +161,11 @@ export default function CommentNode({
         return;
       }
       setLocalDownvotes(res.data.downvotedByMe
-        ? [...(localDownvotes.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)), currentUserId]
-        : localDownvotes.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)
+        ? [...(localDownvotes.filter(u => idMatches(u, currentUserId))), currentUserId]
+        : localDownvotes.filter(u => idMatches(u, currentUserId))
       );
       setLocalUpvotes(prev =>
-        prev.filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId)
+        prev.filter(u => idMatches(u, currentUserId))
       );
     }).catch(() => {
       setLocalDownvotes(previousDownvotes);
@@ -164,7 +178,8 @@ export default function CommentNode({
   // ── Reply ────────────────────────────────────────────────────────────────────
 
   const doReplyImpl = async () => {
-    if (!replyText.trim() || replyLoading) return;
+    if (!replyText.trim() || replyLoading || replyInFlightRef.current) return;
+    replyInFlightRef.current = true;
     setReplyLoading(true);
     try {
       const res = await api.post<{ comment: Comment }>(
@@ -178,7 +193,10 @@ export default function CommentNode({
     } catch (e) {
       setActionError(friendlyError(e, 'Reply failed. Please try again.'));
       setTimeout(() => setActionError(null), 3000);
-    } finally { setReplyLoading(false); }
+    } finally {
+      replyInFlightRef.current = false;
+      setReplyLoading(false);
+    }
   };
 
   const handleReply = gate(doReplyImpl, 'Sign in to reply to this comment.');
@@ -332,14 +350,53 @@ export default function CommentNode({
                       {deleteLoading ? '…' : '🗑'}
                     </button>
                   )}
+                  {idMatches(postAuthorId, currentUserId) && (
+                    <button
+                      onClick={async () => {
+                        if (isVerified) return;
+                        if (!window.confirm('Accept this comment as the official answer?')) return;
+                        try {
+                          const res = await api.patch<{ post: any }>(
+                            `/community/${postId}/comments/${comment._id}/accept-answer`
+                          );
+                          if (onPostUpdated) {
+                            onPostUpdated(res.data.post);
+                          }
+                          setLocalVerified(true);
+                        } catch (e) {
+                          setActionError(friendlyError(e, 'Failed to accept answer.'));
+                          setTimeout(() => setActionError(null), 3000);
+                        }
+                      }}
+                      className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${
+                        isVerified
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 cursor-default ml-auto'
+                          : 'text-ink-soft hover:text-emerald-500 hover:bg-emerald-500/10 border-border ml-auto'
+                      }`}
+                    >
+                      {isVerified ? '✓ Accepted Answer' : '✓ Accept Answer'}
+                    </button>
+                  )}
                   {(userRole === 'admin' || userRole === 'moderator') && (
                     <button
-                      onClick={() =>
-                        api.patch<{ verified: boolean }>(`/community/${postId}/comments/${comment._id}/verify`)
-                          .then(res => { comment.verified = res.data.verified; })
-                          .catch(e => { console.error(e); })
-                      }
-                      className="ml-auto text-[10px] text-ink-faint hover:text-emerald-500 transition-colors">
+                      onClick={async () => {
+                        try {
+                          const res = await api.patch<{ verified: boolean }>(
+                            `/community/${postId}/comments/${comment._id}/verify`
+                          );
+                          // H13: previous code mutated `comment.verified`
+                          // directly which bypassed React — no re-render.
+                          // Hold a local override so the badge flips immediately.
+                          setLocalVerified(res.data.verified);
+                        } catch (e) {
+                          // H13: silent `console.error(e)` was the previous
+                          // pattern — moderator got no feedback. Surface
+                          // through the existing actionError banner.
+                          setActionError(friendlyError(e, 'Failed to update verified status.'));
+                          setTimeout(() => setActionError(null), 3000);
+                        }
+                      }}
+                      className={`text-[10px] text-ink-faint hover:text-emerald-500 transition-colors ${!idMatches(postAuthorId, currentUserId) ? 'ml-auto' : 'ml-2'}`}>
                       {isVerified ? 'Unverify' : '✅ Verify'}
                     </button>
                   )}
@@ -394,8 +451,10 @@ export default function CommentNode({
                     postId={postId}
                     currentUserId={currentUserId}
                     userRole={userRole}
+                    postAuthorId={postAuthorId}
                     onReplyAdded={onReplyAdded}
                     onCommentDeleted={onCommentDeleted}
+                    onPostUpdated={onPostUpdated}
                     depth={depth + 1}
                     threadColor={DEPTH_COLORS[(depth + 1) % DEPTH_COLORS.length]}
                     barColor={DEPTH_BARS[(depth + 1) % DEPTH_BARS.length]}

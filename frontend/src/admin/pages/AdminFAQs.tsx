@@ -1,16 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import FreshnessTierSelector from '../../components/faq/FreshnessTierSelector';
 import adminApi from '../utils/adminApi';
 import Badge from '../components/common/Badge';
 import Modal from '../components/common/Modal';
 import { TableSkeleton } from '../components/common/SkeletonLoader';
+import { useDebounce } from '../../hooks/useDebounce';
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t); }, [value, delay]);
-  return v;
-}
 
 interface FAQ {
   _id: string;
@@ -78,7 +74,22 @@ export default function AdminFAQs() {
   const [batchesLoading, setBatchesLoading] = useState(true);
   const batchMap = useBatchMap(batches);
 
-  const showToast = (msg: string, type: Toast['type'] = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+  // M30 — toast timer pattern. Stored in a ref so it clears on unmount
+  // (no setState-on-unmounted warnings) and on rapid new toasts (no
+  // lingering old timer). Previously `setTimeout(() => setToast(null), 3000)`
+  // ran unconditionally.
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (msg: string, type: Toast['type'] = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, type });
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3000);
+  };
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
 
   const loadBatches = useCallback(async () => {
     try {

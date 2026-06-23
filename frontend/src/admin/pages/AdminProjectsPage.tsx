@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { motion, AnimatePresence } from 'framer-motion';
 import adminApi from '../utils/adminApi';
 
@@ -67,6 +68,8 @@ export default function AdminProjectsPage() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useBodyScrollLock(isModalOpen);
 
   const openCreateModal = () => {
     setEditingProject(null);

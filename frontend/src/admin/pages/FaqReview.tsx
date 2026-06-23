@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import adminApi from '../utils/adminApi';
 import { friendlyError } from '../../utils/api';
 
@@ -59,6 +60,7 @@ export default function FaqReview() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loadError, setLoadError] = useState('');
   const [actioning, setActioning] = useState<string | null>(null);
   const [objectModal, setObjectModal] = useState<string | null>(null);
   const [objectReason, setObjectReason] = useState('');
@@ -73,14 +75,22 @@ export default function FaqReview() {
     loadQueue(page);
   }, [page]);
 
+  useBodyScrollLock(Boolean(viewItem || mergeTarget || objectModal));
+
   async function loadQueue(p: number) {
     setLoading(true);
+    setLoadError('');
     try {
       const res = await adminApi.get(`/admin/community-promotions/queue?page=${p}&limit=${limit}`);
       setQueue(res.data.queue ?? []);
       setTotal(res.data.total ?? 0);
-    } catch {
-      setQueue([]);
+    } catch (e) {
+      // H26: don't wipe the list on a transient network blip — the user
+      // has to re-paginate to find their place. Surface an inline error
+      // banner so the admin sees what happened.
+      // eslint-disable-next-line no-console
+      console.error('Failed to load review queue:', e);
+      setLoadError(friendlyError(e, 'Could not load review queue. The list is preserved from the last successful fetch.'));
     } finally {
       setLoading(false);
     }

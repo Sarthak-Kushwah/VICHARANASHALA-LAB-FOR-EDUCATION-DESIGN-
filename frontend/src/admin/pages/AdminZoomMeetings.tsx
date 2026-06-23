@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef, type ChangeEvent } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Link } from 'react-router-dom';
 import adminApi from '../utils/adminApi';
+import { timeAgo } from '../../utils/time';
 
 interface ZoomMeeting {
   _id: string;
@@ -39,14 +41,6 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function timeAgo(d: string): string {
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function StatusBadge({ status }: { status: ZoomMeeting['status'] }) {
   const styles: Record<ZoomMeeting['status'], string> = {
@@ -99,6 +93,8 @@ export default function AdminZoomMeetings() {
   const [uploadMeetingId, setUploadMeetingId] = useState<string | null>(null);
   const uploadPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+
+  useBodyScrollLock(showProcessModal);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

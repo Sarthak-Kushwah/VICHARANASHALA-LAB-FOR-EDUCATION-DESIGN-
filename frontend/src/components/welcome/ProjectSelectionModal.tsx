@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../utils/api';
 
@@ -41,6 +42,8 @@ interface ProjectSelectionModalProps {
 
 export default function ProjectSelectionModal({ isOpen, project, onClose, onSuccess }: ProjectSelectionModalProps) {
   const [confirming, setConfirming] = useState(false);
+
+  useBodyScrollLock(isOpen);
 
   const handleProceed = async () => {
     if (!project) return;

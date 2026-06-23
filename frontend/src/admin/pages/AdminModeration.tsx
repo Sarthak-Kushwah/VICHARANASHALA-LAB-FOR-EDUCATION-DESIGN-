@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import adminApi from '../utils/adminApi';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { timeAgo } from '../../utils/time';
 
 interface BannedUser { _id: string; name: string; email: string; banReason?: string; bannedAt?: string; tier: string; points: number; }
 interface SuspendedUser { _id: string; name: string; email: string; suspendedUntil?: string; tier: string; points: number; }
@@ -16,14 +18,6 @@ interface EscalatedPost {
   escalationReason?: string;
 }
 
-function timeAgo(d: string) {
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function until(d?: string) {
   if (!d) return '—';
@@ -57,6 +51,11 @@ export default function AdminModeration() {
     return params.get('tab') === 'escalated' ? 'escalated' : 'users';
   });
   const [dismissModal, setDismissModal] = useState<{ post: EscalatedPost; reason: string } | null>(null);
+  // H22: state for the inline "Resolve" modal — replaces window.prompt().
+  const [resolveModal, setResolveModal] = useState<EscalatedPost | null>(null);
+  const [resolveReason, setResolveReason] = useState('');
+
+  useBodyScrollLock(Boolean(dismissModal || resolveModal || warnModal || suspendModal || banModal));
 
   const fetchEscalatedPosts = () => {
     setEscalatedLoading(true);
@@ -273,10 +272,7 @@ export default function AdminModeration() {
                     <span className="text-xs text-ink-faint">{post.commentCount} comment{post.commentCount === 1 ? '' : 's'}</span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          const outcome = prompt('Enter resolution details:');
-                          if (outcome !== null) handleResolveEscalated(post._id, outcome);
-                        }}
+                        onClick={() => { setResolveModal(post); setResolveReason(''); }}
                         className="admin-btn-primary px-3 py-1 text-xs"
                       >Resolve</button>
                       <button
@@ -306,6 +302,42 @@ export default function AdminModeration() {
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setDismissModal(null)} className="admin-btn-outline">Cancel</button>
                 <button onClick={() => { if (dismissModal.reason.trim()) { handleDismissEscalated(dismissModal.post._id, dismissModal.reason); setDismissModal(null); } }} disabled={!dismissModal.reason.trim()} className="admin-btn-danger">Dismiss</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* H22 — Resolve Modal (replaces window.prompt). */}
+      {resolveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setResolveModal(null)}>
+          <div className="w-full max-w-sm admin-modal-panel" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header"><p className="text-sm font-semibold text-ink">Resolve Escalation</p></div>
+            <div className="admin-modal-body space-y-3">
+              <p className="text-xs text-ink-faint">Mark this post as resolved and return it to the community.</p>
+              <div>
+                <label className="admin-label">Resolution details (required)</label>
+                <textarea
+                  rows={3}
+                  value={resolveReason}
+                  onChange={e => setResolveReason(e.target.value)}
+                  placeholder="How was this resolved?"
+                  className="admin-textarea"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setResolveModal(null)} className="admin-btn-outline">Cancel</button>
+                <button
+                  onClick={() => {
+                    if (resolveReason.trim()) {
+                      handleResolveEscalated(resolveModal._id, resolveReason);
+                      setResolveModal(null);
+                    }
+                  }}
+                  disabled={!resolveReason.trim()}
+                  className="admin-btn-primary"
+                >Resolve</button>
               </div>
             </div>
           </div>

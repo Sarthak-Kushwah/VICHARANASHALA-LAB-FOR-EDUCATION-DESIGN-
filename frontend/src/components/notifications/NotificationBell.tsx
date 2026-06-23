@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
 import api, { friendlyError } from '../../utils/api';
 import { useAuth } from '../../hooks/useAuth';
+import { timeAgo } from '../../utils/time';
 
 interface TeaDrop {
   _id: string;
@@ -12,18 +13,6 @@ interface TeaDrop {
   createdAt: string;
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60) return 'just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
 
 function BellIcon({ hasUnread }: { hasUnread: boolean }) {
   return (
@@ -63,7 +52,11 @@ export default function NotificationBell() {
       setTeaHasMore(res.data.hasMore);
       setTeaPage(pageNum);
     } catch (e) {
-      console.error(friendlyError(e, 'Failed to load notifications.'));
+      // H43: previous pattern was `console.error(friendlyError(...))` which is
+      // semantically wrong — friendlyError returns the user-facing message.
+      // Log the raw error instead so devs can still debug, but don't fabricate
+      // a "user-friendly" message just to console.log it.
+      console.error('Failed to load tea notifications:', e);
     } finally {
       setTeaLoading(false);
     }
@@ -93,7 +86,7 @@ export default function NotificationBell() {
       setTeaDrops((prev) => prev.map((d) => ({ ...d, read: true })));
       setTeaUnread(0);
     } catch (e) {
-      console.error(friendlyError(e, 'Failed to mark all read.'));
+      console.error('Failed to mark all tea read:', e);
     }
   };
 
@@ -112,7 +105,7 @@ export default function NotificationBell() {
       setTeaDrops((prev) => prev.map((d) => (d._id === id ? { ...d, read: true } : d)));
       setTeaUnread((u) => Math.max(0, u - 1));
     } catch (e) {
-      console.error(friendlyError(e, 'Failed to mark notification read.'));
+      console.error('Failed to mark tea notification read:', e);
     }
   };
 

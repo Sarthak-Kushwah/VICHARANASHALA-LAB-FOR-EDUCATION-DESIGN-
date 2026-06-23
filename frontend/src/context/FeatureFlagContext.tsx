@@ -8,6 +8,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../utils/api';
+import { useAuth } from '../hooks/useAuth';
 
 export interface FeatureFlag {
   key: string;
@@ -51,6 +52,7 @@ export function useFeatureFlag(key: string): boolean | undefined {
 interface ProviderProps { children: React.ReactNode }
 
 export function FeatureFlagProvider({ children }: ProviderProps): React.ReactElement {
+  const { isAuthenticated } = useAuth();
   const [flags, setFlags] = useState<Record<string, FeatureFlag>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function FeatureFlagProvider({ children }: ProviderProps): React.ReactEle
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, isAuthenticated]);
 
   const isEnabled = useCallback(
     (key: string) => flags[key]?.enabled ?? false,

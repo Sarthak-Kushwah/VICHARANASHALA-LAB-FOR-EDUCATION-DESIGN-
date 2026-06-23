@@ -8,6 +8,7 @@ import {
   toggleUpvote,
   deletePost,
   reportPost,
+  updatePost,
 } from './post-mutations.controller.js';
 import {
   resolvePost,
@@ -89,6 +90,7 @@ router.post('/:id/unlock', protect, authorize('admin', 'moderator'), unlockPost)
 router.post('/:id/convert-to-faq', protect, authorize('admin'), convertCommunityPostToFAQ);
 router.patch('/:id/dna', protect, setPostDNA);
 router.patch('/:id/tags', protect, setPostTags);
-router.delete('/:id', protect, authorize('admin', 'moderator'), deletePost);
+router.patch('/:id', protect, updatePost);
+router.delete('/:id', protect, deletePost);
 
 export default router;

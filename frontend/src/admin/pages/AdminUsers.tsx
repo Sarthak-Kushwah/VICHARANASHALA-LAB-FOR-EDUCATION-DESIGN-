@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import adminApi from '../utils/adminApi';
 import Badge from '../components/common/Badge';
+import { useDebounce } from '../../hooks/useDebounce';
 
-function useDebounce<T>(value: T, delay: number): T { const [v, setV] = useState(value); useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t); }, [value, delay]); return v; }
 type UserRole = 'admin' | 'moderator' | 'user' | 'ai_moderator' | 'expert';
 interface AdminUser { _id: string; name: string; email: string; role: UserRole; createdAt: string; updatedAt: string; points?: number; reputation?: number; tier?: string; positiveBadges?: Array<{ badgeId: { _id: string; name: string; slug: string; icon: string; description: string }; awardedAt?: string; reason?: string }>; negativeBadges?: Array<{ badgeId: { _id: string; name: string; slug: string; icon: string }; awardedAt?: string; reason?: string }>; isBanned?: boolean; suspendedUntil?: string; }
 interface UsersApiResponse { users: AdminUser[]; total: number; pages: number; }
@@ -26,6 +27,8 @@ const TIER_ICONS: Record<string, string> = {
 };
 
 function UserDetailModal({ user, onClose, onRefresh }: { user: AdminUser; onClose: () => void; onRefresh: () => void }) {
+  useBodyScrollLock(true);
+
   const [warnModal, setWarnModal] = useState(false);
   const [suspendModal, setSuspendModal] = useState(false);
   const [banModal, setBanModal] = useState(false);
@@ -233,6 +236,8 @@ function UserDetailModal({ user, onClose, onRefresh }: { user: AdminUser; onClos
 }
 
 function RoleModal({ user, onClose, onUpdated }: { user: AdminUser; onClose: () => void; onUpdated: (u: AdminUser) => void }) {
+  useBodyScrollLock(true);
+
   const [role, setRole] = useState<UserRole>(user.role);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -263,6 +268,8 @@ function RoleModal({ user, onClose, onUpdated }: { user: AdminUser; onClose: () 
 }
 
 function DeleteModal({ user, onClose, onDeleted }: { user: AdminUser; onClose: () => void; onDeleted: (id: string) => void }) {
+  useBodyScrollLock(true);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const handleDelete = async () => { setLoading(true); setError(''); try { await adminApi.delete(`/auth/users/${user._id}`); onDeleted(user._id); onClose(); } catch (err) { setError(((err as { response?: { data?: { message?: string } } })?.response?.data?.message) ?? 'Failed'); } finally { setLoading(false); } };

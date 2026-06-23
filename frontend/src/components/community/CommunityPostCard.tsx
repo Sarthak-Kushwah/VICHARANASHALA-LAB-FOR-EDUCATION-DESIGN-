@@ -3,6 +3,7 @@ import Badge from '../ui/Badge';
 import { useAuth } from '../../hooks/useAuth';
 import type { Post } from '../../types/ui';
 import { buildTransformedUrl, type CloudinaryAsset } from '../../hooks/useCloudinaryUpload';
+import { idMatches } from '../../utils/idMatch';
 
 const formatDate = (dateStr: string): string => {
   const d = new Date(dateStr);
@@ -31,10 +32,7 @@ export default function CommunityPostCard({ post, onClick, currentUserId, onTogg
   const isAnswered = post.status === 'answered';
   const upvoteCount = (post.upvotes?.length ?? 0) as number;
   const commentCount = (post.comments?.length ?? 0) as number;
-  const hasUpvoted = post.upvotes?.some((id) => {
-    const idStr = typeof id === 'object' ? (id as { _id?: string })._id || String(id) : String(id);
-    return idStr === currentUserId;
-  }) ?? false;
+  const hasUpvoted = post.upvotes?.some((id) => idMatches(id, currentUserId)) ?? false;
 
   const { user } = useAuth();
   const isPrivileged = user?.role === 'admin' || user?.role === 'moderator';
@@ -52,10 +50,18 @@ export default function CommunityPostCard({ post, onClick, currentUserId, onTogg
     : '';
 
   return (
-    <button
+    <div
       onClick={() => onClick?.(post)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.(post);
+        }
+      }}
+      role="button"
+      tabIndex={0}
       className={`bg-card rounded-2xl border border-border shadow-subtle w-full text-left p-4 flex items-start gap-4
-                 card-hover group transition-all duration-300 ${cardBorder}`}
+                 card-hover group transition-all duration-300 cursor-pointer ${cardBorder}`}
     >
       <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5
                        ${isAnswered ? 'bg-success-light text-success' : 'bg-warning-light text-warning'}`}>
@@ -195,6 +201,6 @@ export default function CommunityPostCard({ post, onClick, currentUserId, onTogg
           <path d="M4.5 2.5L9.5 7L4.5 11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </span>
-    </button>
+    </div>
   );
 }

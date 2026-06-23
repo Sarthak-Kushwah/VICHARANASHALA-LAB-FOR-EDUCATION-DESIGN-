@@ -1,10 +1,11 @@
 import { useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock';
 
 interface ModalProps { open: boolean; onClose: () => void; title?: string; children: ReactNode; maxWidth?: string; }
 
 export default function Modal({ open, onClose, title, children, maxWidth = 'max-w-xl' }: ModalProps) {
-  useEffect(() => { if (open) document.body.style.overflow = 'hidden'; else document.body.style.overflow = ''; return () => { document.body.style.overflow = ''; }; }, [open]);
+  useBodyScrollLock(open);
   useEffect(() => { const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [onClose]);
 
   return (

@@ -60,9 +60,13 @@ export default function InteractiveSearchOverlay({ onSearchComplete }: Interacti
     'Sign in to ask the community a question.'
   );
 
+  // H42: re-fetch when activeBatchId changes so switching program
+  // refreshes trending queries. Also send `batchId` as a query param
+  // so the backend can scope the response per program.
   useEffect(() => {
     let isMounted = true;
-    api.get('/search/trending')
+    setTrendingLoading(true);
+    api.get('/search/trending', { params: { batchId: activeBatchId } })
       .then((res) => {
         if (isMounted) setTrending(res.data.trending || []);
       })
@@ -76,7 +80,7 @@ export default function InteractiveSearchOverlay({ onSearchComplete }: Interacti
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeBatchId]);
 
   useEffect(() => {
     setExpandedId(null);
@@ -303,7 +307,10 @@ export default function InteractiveSearchOverlay({ onSearchComplete }: Interacti
                       Popular searches
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {!trendingLoading && (
+                      {/* H41: skeletons should appear WHILE loading, not when done.
+                          Original `!trendingLoading &&` made them invisible during
+                          the actual load. */}
+                      {trendingLoading && (
                         [1, 2, 3].map((i) => (
                           <div key={i} className="h-8 w-24 rounded-full search-skeleton animate-pulse" />
                         ))

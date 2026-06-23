@@ -60,10 +60,18 @@ export async function toggleBookmark(req: Request, res: Response): Promise<void>
         { _id: userId, 'bookmarks': { $ne: postObjectId } },
         { $addToSet: { bookmarks: postObjectId } },
       );
+      await CommunityPost.findOneAndUpdate(
+        { _id: postObjectId, 'bookmarks': { $ne: userId } },
+        { $addToSet: { bookmarks: userId } },
+      );
     } else {
       await User.findOneAndUpdate(
         { _id: userId, 'bookmarks': postObjectId },
         { $pull: { bookmarks: postObjectId } },
+      );
+      await CommunityPost.findOneAndUpdate(
+        { _id: postObjectId, 'bookmarks': userId },
+        { $pull: { bookmarks: userId } },
       );
     }
 

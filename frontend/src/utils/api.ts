@@ -287,6 +287,13 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent('authmodal:open', {
         detail: { tab: 'signin', prompt },
       }));
+
+      // H2: also dispatch `auth:logout` so the AuthContext clears its
+      // in-memory user state synchronously. Without this, the React tree
+      // still thinks the user is logged in until the next reload, so
+      // authenticated UI continues to render even though every protected
+      // call now 401s and re-opens the modal in a loop.
+      window.dispatchEvent(new CustomEvent('auth:logout'));
     }
     return Promise.reject(error);
   }
@@ -316,9 +323,12 @@ export function friendlyError(err: unknown, fallback: string): string {
   // For 4xx (validation, not-found, etc.) we trust the backend's short
   // message — it's already user-safe. We only swap it out if the message
   // looks like a leaked auth-internal string.
+  // M4: cap was 200 chars which truncated longer validation messages
+  // (e.g. "field X with value Y failed validation because Z"). Bumped to
+  // 500 to match the backend's typical validation payload size.
   if (status && status >= 400 && status < 500) {
     const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-    if (typeof msg === 'string' && msg.length > 0 && msg.length < 200) {
+    if (typeof msg === 'string' && msg.length > 0 && msg.length < 500) {
       const lower = msg.toLowerCase();
       if (
         lower.includes('token') ||

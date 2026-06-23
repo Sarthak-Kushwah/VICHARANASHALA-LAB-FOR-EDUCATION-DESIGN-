@@ -16,13 +16,20 @@ interface CreatePostDialogProps {
 export default function CreatePostDialog({ onClose, onCreated, prefillTitle = '' }: CreatePostDialogProps) {
   const { user } = useAuth();
   const { openModal } = useAuthModal();
-  // Guard: if somehow rendered without an authenticated user, close dialog and show sign-in.
-  // NOTE: onClose resets showCreate=false in the parent, preventing re-render loops.
-  if (!user) {
-    onClose();
-    openModal('signin');
-    return null;
-  }
+  // Guard: if rendered without an authenticated user, close the dialog and
+  // open the sign-in modal. MOVED INTO useEffect — calling onClose /
+  // openModal during render violates React's render-must-be-pure rule and
+  // causes infinite loops in StrictMode (H11 in audit-findings.md).
+  // The `eslint-disable` is intentional: we only want to fire this once
+  // when `user` flips from non-null to null, not on every render.
+  useEffect(() => {
+    if (!user) {
+      onClose();
+      openModal('signin');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+  if (!user) return null;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const navigate = useNavigate();
   const DRAFT_KEY = 'yaksha_post_draft';

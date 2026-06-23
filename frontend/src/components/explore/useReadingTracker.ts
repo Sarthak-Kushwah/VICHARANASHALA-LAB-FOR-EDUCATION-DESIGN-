@@ -96,7 +96,11 @@ export function useReadingTracker(
       if (frame) return;
       frame = requestAnimationFrame(update);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    // H10: attach to the article node (which has overflow-y-auto), not
+    // window. The article is the only scrollable surface inside the
+    // PublicFaqDetail modal — window itself never scrolls, so attaching
+    // there meant scrollPct stayed at 0 and no read events fired.
+    node.addEventListener('scroll', onScroll, { passive: true });
     update();
 
     // Dwell ticker — every 5s update displayed value; the actual interval
@@ -108,7 +112,7 @@ export function useReadingTracker(
     }, 5000);
 
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      node.removeEventListener('scroll', onScroll);
       window.clearInterval(dwellInterval);
       if (frame) cancelAnimationFrame(frame);
     };

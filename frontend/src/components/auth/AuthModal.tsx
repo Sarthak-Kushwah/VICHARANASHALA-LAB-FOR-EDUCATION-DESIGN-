@@ -2,10 +2,21 @@ import React, { useEffect, useState, type ChangeEvent, type FormEvent } from 're
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, type User } from '../../hooks/useAuth';
 import { useAuthModal } from '../../context/AuthModalContext';
+import api from '../../utils/api';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 
 type Tab = 'signin' | 'register';
+
+/**
+ * Public registration-mode snapshot returned by
+ *   GET /api/auth/registration-status
+ * Drives the banner + submit-button gating in the register tab.
+ */
+interface RegistrationStatus {
+  enabled: boolean;
+  openForAll: boolean;
+}
 
 /**
  * AuthModal — single tabbed modal that combines Sign in + Get started.
@@ -37,6 +48,15 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // v1.7x — Public registration-mode snapshot. Fetched when the modal
+  // opens on the register tab so we can render the right banner copy
+  // ("registration closed" / "invite required" / "open to everyone")
+  // instead of forcing the user to submit and discover via a 403.
+  // `null` until the first fetch resolves; `closed` (default) if the
+  // endpoint is unreachable so we never accidentally allow submit
+  // against a downed backend.
+  const [regStatus, setRegStatus] = useState<RegistrationStatus | null>(null);
+
   // "closing" keeps the DOM node alive through the fade-out animation so
   // sibling dialogs (e.g. CreatePostDialog) don't appear on top of the
   // fading backdrop. Once the animation timer expires, the component
@@ -56,6 +76,31 @@ export default function AuthModal() {
       }
     }
   }, [isOpen, initialTab]);
+
+  // v1.7x — Fetch public registration status whenever the register
+  // tab is the active tab and the modal is open. Re-fetch on tab flip
+  // (signin → register) so we always have fresh data when the user
+  // arrives at the form. Failure is treated as "closed" — better UX
+  // than showing an empty form that silently 403s on submit.
+  useEffect(() => {
+    if (!isOpen || tab !== 'register') return;
+    let cancelled = false;
+    api
+      .get<RegistrationStatus>('/auth/registration-status')
+      .then((res) => {
+        if (!cancelled) setRegStatus(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          // Default to closed on fetch failure so the submit button
+          // stays disabled until the user retries or refreshes.
+          setRegStatus({ enabled: false, openForAll: false });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, tab]);
 
   // ESC closes the modal.
   useEffect(() => {
@@ -289,6 +334,49 @@ export default function AuthModal() {
           </form>
         ) : (
           <form onSubmit={handleRegisterSubmit} className="space-y-4" noValidate>
+            {/* v1.7x — Registration-mode banner. Drives both the copy
+                and whether the submit button is enabled. The banner is
+                intentionally rendered above the inputs so a closed-mode
+                visitor sees "registration closed" before they fill out
+                a form that would 403. */}
+            {regStatus && (
+              <div
+                className={[
+                  'rounded-md px-3 py-2 text-[11px] border',
+                  !regStatus.enabled
+                    ? 'bg-red-50 border-red-200 text-red-900'
+                    : regStatus.openForAll
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : inviteToken
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900',
+                ].join(' ')}
+                aria-live="polite"
+              >
+                {!regStatus.enabled ? (
+                  <>
+                    <span className="font-semibold">Registration is closed.</span>{' '}
+                    New accounts are not being accepted right now.
+                  </>
+                ) : regStatus.openForAll ? (
+                  <>
+                    <span className="font-semibold">Open registration.</span>{' '}
+                    Anyone can create an account — no invite link required.
+                  </>
+                ) : inviteToken ? (
+                  <>
+                    <span className="font-semibold">Invite link accepted.</span>{' '}
+                    You arrived via an invite link, so registration is unlocked for you.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">Invite required.</span>{' '}
+                    Registration is invite-only — please use the link shared with you,
+                    or ask an admin for one.
+                  </>
+                )}
+              </div>
+            )}
             <Input
               id="modal-register-name"
               name="name"
@@ -339,7 +427,17 @@ export default function AuthModal() {
                 {error}
               </p>
             )}
-            <Button type="submit" loading={loading} className="w-full mt-1">
+            <Button
+              type="submit"
+              loading={loading}
+              // Block submit while we don't yet know the registration
+              // status (status fetch in flight) or when the gate is
+              // closed. We still allow submit when invite-only + no
+              // token — the backend returns a clear 403 with copy
+              // matching the banner.
+              disabled={loading || regStatus === null || !regStatus.enabled}
+              className="w-full mt-1"
+            >
               Create account
             </Button>
           </form>

@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import Avatar from '../ui/Avatar';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import api, { friendlyError } from '../../utils/api';
 import { buildTransformedUrl, type CloudinaryAsset } from '../../hooks/useCloudinaryUpload';
 import type { Post, Comment } from '../../types/ui';
+import { idMatches } from '../../utils/idMatch';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const formatDate = (d: string | undefined) =>
@@ -258,10 +260,10 @@ function CommentItem({ comment, post, currentUserId, userRole, onUpdate }: {
   const cDownvotes = comment.downvotes?.length ?? 0;
   const netScore = cUpvotes - cDownvotes;
   const hasUpvoted = comment.upvotes?.some(
-    u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+    u => idMatches(u, currentUserId)
   ) ?? false;
   const hasDownvoted = comment.downvotes?.some(
-    u => (typeof u === 'object' ? (u as { _id?: string })._id || u : u)?.toString() === currentUserId
+    u => idMatches(u, currentUserId)
   ) ?? false;
   const commentOpacity = netScore >= 0 ? 1 : Math.max(0.15, 1 - (Math.abs(netScore) * 0.2));
   const canResolve = userRole === 'admin' || userRole === 'moderator';
@@ -280,8 +282,8 @@ function CommentItem({ comment, post, currentUserId, userRole, onUpdate }: {
         ...c,
         upvotes: res.data.upvotedByMe
           ? [...(c.upvotes || []), currentUserId]
-          : (c.upvotes || []).filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId),
-        downvotes: (c.downvotes || []).filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId),
+          : (c.upvotes || []).filter(u => idMatches(u, currentUserId)),
+        downvotes: (c.downvotes || []).filter(u => idMatches(u, currentUserId)),
       } : c
     ));
   };
@@ -300,8 +302,8 @@ function CommentItem({ comment, post, currentUserId, userRole, onUpdate }: {
         ...c,
         downvotes: res.data.downvotedByMe
           ? [...(c.downvotes || []), currentUserId]
-          : (c.downvotes || []).filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId),
-        upvotes: (c.upvotes || []).filter(u => (typeof u === 'object' ? (u as { _id?: string })._id : u)?.toString() !== currentUserId),
+          : (c.downvotes || []).filter(u => idMatches(u, currentUserId)),
+        upvotes: (c.upvotes || []).filter(u => idMatches(u, currentUserId)),
       } : c
     ));
   };
@@ -440,6 +442,11 @@ function CommentItem({ comment, post, currentUserId, userRole, onUpdate }: {
 // ── Main Export ────────────────────────────────────────────────────────────────
 export default function PostDetailDialog({ post: initialPost, onClose, currentUserId, userRole }: PostDetailDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const commentFormRef = useRef<HTMLFormElement>(null);
+  // H6 — ref-based in-flight guard. State guards race: between the Enter
+  // keypress and `setCommentLoading(true)` committing, a second Enter can
+  // pass the `commentLoading` check. A ref doesn't.
+  const commentInFlightRef = useRef(false);
   const [post, setPost] = useState<Post>(initialPost);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
@@ -458,7 +465,7 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
   const isAnswered = post.status === 'answered';
   const upvoteCount = post.upvotes?.length ?? 0;
   const hasUpvoted = post.upvotes?.some(
-    id => (typeof id === 'object' ? (id as { _id?: string })._id || id : id)?.toString() === currentUserId
+    id => idMatches(id, currentUserId)
   ) ?? false;
   const canResolve = userRole === 'admin' || userRole === 'moderator';
   const attachments = (post as Post & { attachments?: CloudinaryAsset[] }).attachments ?? [];
@@ -483,20 +490,22 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
     return () => dialog.removeEventListener('close', handleClose);
   }, [onClose]);
 
+  useBodyScrollLock(true);
+
   const handlePostUpdate = (updated: Post) => setPost(updated);
 
   const handleUpvote = async () => {
     const prev = post.upvotes || [];
-    const isUpvoted = prev.some(id => (typeof id === 'object' ? (id as { _id?: string })._id || id : id)?.toString() === currentUserId);
+    const isUpvoted = prev.some(id => idMatches(id, currentUserId));
     const next = isUpvoted
-      ? prev.filter(id => (typeof id === 'object' ? (id as { _id?: string })._id : id)?.toString() !== currentUserId)
+      ? prev.filter(id => idMatches(id, currentUserId))
       : [...prev, currentUserId];
     setPost(p => ({ ...p, upvotes: next }));
     try {
       const res = await api.post<{ upvotedByMe: boolean }>(`/community/${post._id}/upvote`);
       setPost(p => ({ ...p, upvotes: res.data.upvotedByMe
-        ? [...prev.filter(id => (typeof id === 'object' ? (id as { _id?: string })._id : id)?.toString() !== currentUserId), currentUserId]
-        : prev.filter(id => (typeof id === 'object' ? (id as { _id?: string })._id : id)?.toString() !== currentUserId)
+        ? [...prev.filter(id => idMatches(id, currentUserId)), currentUserId]
+        : prev.filter(id => idMatches(id, currentUserId))
       }));
     } catch {
       setPost(p => ({ ...p, upvotes: prev }));
@@ -507,7 +516,12 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim() || commentLoading) return;
+    // H6 — guard with ref. State-based guard has a race window where
+    // two Enter presses both pass the check before `setCommentLoading(true)`
+    // commits. Refs don't re-render, so the second invocation sees the
+    // updated value synchronously.
+    if (!commentText.trim() || commentLoading || commentInFlightRef.current) return;
+    commentInFlightRef.current = true;
     setCommentLoading(true);
     try {
       const res = await api.post<{ comment: Comment }>(`/community/${post._id}/comments`, { body: commentText });
@@ -517,7 +531,10 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Comment failed.';
       setActionError(msg);
       setTimeout(() => setActionError(null), 3000);
-    } finally { setCommentLoading(false); }
+    } finally {
+      commentInFlightRef.current = false;
+      setCommentLoading(false);
+    }
   };
 
   const handleResolve = async (e: React.FormEvent) => {
@@ -769,27 +786,20 @@ export default function PostDetailDialog({ post: initialPost, onClose, currentUs
 
           {/* Comment Input */}
           {currentUserId && (
-            <form onSubmit={handleComment} className="mt-4">
+            <form ref={commentFormRef} onSubmit={handleComment} className="mt-4">
               <div className="flex gap-2 items-start">
                 <Avatar name={undefined} size="sm" />
                 <textarea value={commentText} onChange={e => setCommentText(e.target.value)} rows={2}
                   placeholder="Add a comment..."
                   className="flex-1 rounded-xl border border-border bg-mist px-3 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/25 focus:bg-card transition-all resize-none"
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (commentText.trim()) handleComment(e as unknown as React.FormEvent); } }}/>
-                <Button type="submit" size="md" disabled={!commentText.trim()} loading={commentLoading} className="flex-shrink-0 mt-0.5">Post</Button>
-              </div>
-              <p className="text-xs text-ink-faint mt-1.5 ml-9">Enter to post · Shift+Enter for newline</p>
-            </form>
-          )}
-          {/* Comment Input */}
-          {currentUserId && (
-            <form onSubmit={handleComment} className="mt-4">
-              <div className="flex gap-2 items-start">
-                <Avatar name={undefined} size="sm" />
-                <textarea value={commentText} onChange={e => setCommentText(e.target.value)} rows={2}
-                  placeholder="Add a comment..."
-                  className="flex-1 rounded-xl border border-border bg-mist px-3 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/25 focus:bg-card transition-all resize-none"
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (commentText.trim()) handleComment(e as unknown as React.FormEvent); } }}/>
+                  onKeyDown={e => {
+                    // H6 — submit via form.requestSubmit() so the form's
+                    // own onSubmit handler runs (no React.FormEvent cast).
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (commentText.trim()) commentFormRef.current?.requestSubmit();
+                    }
+                  }}/>
                 <Button type="submit" size="md" disabled={!commentText.trim()} loading={commentLoading} className="flex-shrink-0 mt-0.5">Post</Button>
               </div>
               <p className="text-xs text-ink-faint mt-1.5 ml-9">Enter to post · Shift+Enter for newline</p>

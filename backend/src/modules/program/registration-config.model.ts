@@ -30,6 +30,14 @@ export interface IRegistrationConfig extends Document<string> {
   _id: 'singleton';
   /** When false, all `/api/auth/register` calls return 403. */
   registrationEnabled: boolean;
+  /**
+   * When true AND `registrationEnabled` is true, the gate allows
+   * `/api/auth/register` calls without an `?token=` invite link —
+   * i.e. "open for all" registration. Stored token is still kept
+   * (so the admin can flip the mode back without regenerating),
+   * but the gate does not consult it.
+   */
+  openForAll: boolean;
   /** Plaintext invite token. Compare with `crypto.timingSafeEqual`. */
   inviteToken: string;
   /** When the current `inviteToken` was last generated. */
@@ -46,6 +54,7 @@ const registrationConfigSchema = new MongooseSchema<IRegistrationConfig>(
   {
     _id: { type: String, default: 'singleton' },
     registrationEnabled: { type: Boolean, default: false },
+    openForAll: { type: Boolean, default: false },
     inviteToken: { type: String, required: true },
     tokenGeneratedAt: { type: Date, required: true },
     lastToggledBy: {
@@ -89,6 +98,7 @@ export async function ensureRegistrationConfig(): Promise<IRegistrationConfig> {
     doc = await RegistrationConfigModel.create({
       _id: 'singleton',
       registrationEnabled: false,
+      openForAll: false,
       inviteToken: token,
       tokenGeneratedAt: new Date(),
       lastToggledBy: null,

@@ -251,13 +251,14 @@ export default function ZoomAssessmentModal({ onClose }: ZoomAssessmentModalProp
             <div className="text-center p-[32px] flex-1 flex flex-col justify-center items-center overflow-y-auto gap-[20px]">
               <h3 className="font-serif text-2xl sm:text-3xl font-bold text-ink">Assessment Results</h3>
               <p className="text-sm sm:text-base text-ink-soft leading-relaxed">{resultMessage}</p>
-              <button 
+              <button
                 onClick={() => {
+                  // M55: keep the user's existing answers + cursor — only reset
+                  // the result message and re-fetch the question set. Otherwise
+                  // "Try Again" wipes everything they already entered.
                   setResultMessage(null);
-                  setAnswers({});
-                  setCurrentIdx(0);
                   fetchQuestions();
-                }} 
+                }}
                 className="btn-base btn-primary cursor-pointer px-8 py-2.5 font-semibold text-sm rounded-full"
               >
                 Try Again

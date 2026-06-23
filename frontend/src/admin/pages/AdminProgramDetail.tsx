@@ -219,14 +219,50 @@ export default function AdminProgramDetail(): React.ReactElement {
 }
 
 function OverviewTab({ programId }: { programId: string }) {
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // H29: the previous version shipped 8 literal "—" placeholders. Replace
+  // with a real fetch from the existing /admin/batches/:id endpoint which
+  // already returns faqCount. Other counts (members, courses, support,
+  // community, zoom, KB, badges) require backend stats aggregation that
+  // isn't built yet — show "—" for those with a "pending" hint.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    adminApi
+      .get<{ batch?: { faqCount?: number; memberCount?: number } }>(`/admin/batches/${programId}`)
+      .then((res) => {
+        if (cancelled) return;
+        const b = res.data.batch ?? {};
+        setStats({
+          members: b.memberCount ?? 0,
+          faqs: b.faqCount ?? 0,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setStats({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
+
+  const render = (key: string, label: string) => (
+    <StatBox label={label} value={loading && !stats?.[key] ? '…' : (stats?.[key] ?? '—')} />
+  );
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-soft">
         At-a-glance counts for this program. Detailed per-tab views are in the tabs above.
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatBox label="Members" value="—" />
-        <StatBox label="FAQs" value="—" />
+        {render('members', 'Members')}
+        <StatBox label="FAQs" value={loading && !stats?.faqs ? '…' : (stats?.faqs ?? '—')} />
         <StatBox label="Courses" value="—" />
         <StatBox label="Open support" value="—" />
         <StatBox label="Open community" value="—" />
@@ -236,6 +272,7 @@ function OverviewTab({ programId }: { programId: string }) {
       </div>
       <p className="text-[11px] text-ink-faint">
         Program id: <code className="px-1 py-0.5 rounded bg-mist">{programId}</code>
+        <span className="ml-2">· counts marked — are pending the per-program stats endpoint.</span>
       </p>
     </div>
   );

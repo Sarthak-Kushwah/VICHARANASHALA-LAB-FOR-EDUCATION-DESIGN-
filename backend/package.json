@@ -31,7 +31,8 @@
     "cleanup:seed": "tsx src/scripts/cleanupSeedData.ts",
     "setup:new-cluster": "tsx src/scripts/setupNewCluster.ts",
     "test:hf-key": "tsx src/scripts/testHuggingFaceKey.ts",
-    "recompute:tier": "tsx src/scripts/recomputeTier.ts"
+    "recompute:tier": "tsx src/scripts/recomputeTier.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

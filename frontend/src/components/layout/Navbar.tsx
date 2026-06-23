@@ -7,6 +7,7 @@ import { buildTransformedUrl } from '../../hooks/useCloudinaryUpload';
 import NotificationBell from '../../components/notifications/NotificationBell';
 import SpurtiChip from './SpurtiChip';
 import ZoomBubble from '../welcome/ZoomBubble';
+import { BatchSwitcher } from './BatchSwitcher';
 
 // v1.65.1 — `xlOnly?: true` flags a nav tab as hidden below the xl
 // breakpoint (1280px). Used by Golden Ticket when the center
@@ -151,7 +152,7 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
   const isCommunityActive = location.pathname === '/community';
 
   return (
-    <header className="fixed top-2 sm:top-4 left-0 right-0 z-50 px-4 transition-all duration-[400ms] ease-smooth flex justify-center">
+    <header className="fixed top-2 sm:top-4 left-0 right-0 z-50 px-4 transition-all duration-[400ms] ease-smooth flex flex-col items-center">
       <div className={`w-full max-w-[1200px] px-4 sm:px-6 h-14 sm:h-16 grid grid-cols-[1fr_auto_1fr] items-center relative rounded-full transition-all duration-[400ms]
         ${scrolled
           ? 'bg-[rgb(var(--bg-card-rgb)_/_0.75)] backdrop-blur-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-[rgb(var(--border-rgb)_/_0.5)] saturate-[1.5]'
@@ -249,6 +250,9 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
                 <ZoomBubble />
                 {/* Spurti Points chip */}
                 <SpurtiChip />
+                {user?.role === 'admin' && (
+                  <BatchSwitcher showCreateLink={true} className="hidden md:inline-flex" />
+                )}
 
                 <NotificationBell />
 
@@ -376,8 +380,8 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
 
       {/* Mobile Dropdown */}
       <div
-        className={`lg:hidden overflow-hidden transition-all duration-[350ms] ease-smooth border-t border-border ${
-          mobileOpen ? 'max-h-[28rem] opacity-100' : 'max-h-0 opacity-0'
+        className={`lg:hidden w-full max-w-[1200px] mt-2 overflow-hidden rounded-[24px] border border-[rgb(var(--border-rgb)_/_0.5)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-[350ms] ease-smooth ${
+          mobileOpen ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
         }`}
         style={{
           backgroundColor: 'rgb(var(--bg-card-rgb) / 0.95)',
@@ -386,6 +390,14 @@ export default function Navbar({ showProgramSwitcher: _showProgramSwitcher = fal
         }}
       >
         <div className="px-6 py-4 flex flex-col gap-1">
+          {user?.role === 'admin' && (
+            <div className="px-4 py-2 border-b border-border/40 mb-2">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-ink-faint mb-1.5">
+                Current Program
+              </p>
+              <BatchSwitcher showCreateLink={true} compact className="w-full" />
+            </div>
+          )}
           {allNavItems.map(({ label, to }) => (
             <NavLink
               key={to}

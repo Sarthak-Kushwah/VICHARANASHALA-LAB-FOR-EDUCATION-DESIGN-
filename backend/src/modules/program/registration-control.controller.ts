@@ -55,7 +55,8 @@ function buildInviteLink(req: Request, token: string): string {
  * GET /api/admin/registration-config
  * Returns the current config — INCLUDING the current invite link,
  * built from the stored plaintext token. The link is only exposed
- * to admin-role callers; public callers see only `enabled`.
+ * to admin-role callers; public callers see only `enabled` +
+ * `openForAll` via /api/auth/registration-status.
  */
 export async function adminGetRegistrationConfig(req: Request, res: Response): Promise<void> {
   try {
@@ -65,6 +66,11 @@ export async function adminGetRegistrationConfig(req: Request, res: Response): P
       : null;
     res.json({
       enabled: doc.registrationEnabled,
+      openForAll: doc.openForAll,
+      // Derived: when the gate currently requires an invite link to
+      // register. Lets the admin UI render a single source-of-truth
+      // banner without recomputing the logic client-side.
+      inviteRequired: doc.registrationEnabled && !doc.openForAll,
       inviteLink: buildInviteLink(req, doc.inviteToken),
       tokenGeneratedAt: doc.tokenGeneratedAt,
       lastToggledBy: lastToggledBy
@@ -84,14 +90,26 @@ export async function adminGetRegistrationConfig(req: Request, res: Response): P
 
 /**
  * PATCH /api/admin/registration-config
- * Body: { enabled: boolean }
- * Toggles the registration gate. Audit-logged.
+ * Body: { enabled?: boolean, openForAll?: boolean }
+ * Updates whichever flags the admin passed. At least one boolean
+ * flag must be supplied; otherwise the request is a no-op and we
+ * 400 to surface the mistake. Audit-logged.
+ *
+ * Important: `openForAll` only takes effect when `enabled === true`.
+ * Toggling openForAll while enabled is false is allowed (it sticks)
+ * but the gate still rejects until the master toggle is flipped on.
+ * The admin UI surfaces this by disabling the openForAll toggle when
+ * enabled is off.
  */
 export async function adminUpdateRegistrationConfig(req: Request, res: Response): Promise<void> {
   try {
-    const body = (req.body ?? {}) as { enabled?: unknown };
-    if (typeof body.enabled !== 'boolean') {
-      res.status(400).json({ message: '`enabled` (boolean) is required.' });
+    const body = (req.body ?? {}) as { enabled?: unknown; openForAll?: unknown };
+    const hasEnabled = typeof body.enabled === 'boolean';
+    const hasOpenForAll = typeof body.openForAll === 'boolean';
+    if (!hasEnabled && !hasOpenForAll) {
+      res
+        .status(400)
+        .json({ message: 'At least one of `enabled` or `openForAll` (boolean) is required.' });
       return;
     }
     const adminId = adminIdFromReq(req);
@@ -102,34 +120,65 @@ export async function adminUpdateRegistrationConfig(req: Request, res: Response)
     // Ensure singleton exists before updating so the upsert doesn't
     // require an inviteToken that wasn't generated yet.
     await ensureRegistrationConfig();
-    const doc = await RegistrationConfig.findByIdAndUpdate(
-      'singleton',
-      {
-        $set: {
-          registrationEnabled: body.enabled,
-          lastToggledBy: adminId,
-          lastToggledAt: new Date(),
-        },
-      },
-      { new: true },
-    );
-    // Audit log — reuses the existing 'settings_update' action.
-    // Best-effort: don't block the response on log failure.
+
+    // Build the $set only with the flags actually supplied — keeps
+    // the audit-log message faithful ("openForAll toggled" instead of
+    // "openForAll toggled AND enabled changed" when only one was sent).
+    const setOps: Record<string, unknown> = {
+      lastToggledBy: adminId,
+      lastToggledAt: new Date(),
+    };
+    if (hasEnabled) setOps.registrationEnabled = body.enabled;
+    if (hasOpenForAll) setOps.openForAll = body.openForAll;
+
+    const doc = await RegistrationConfig.findByIdAndUpdate('singleton', { $set: setOps }, {
+      new: true,
+    });
+
+    // Audit log — best-effort. Build a precise human-readable summary
+    // so the /admin/activity-feed shows what actually changed.
+    const detailParts: string[] = [];
+    if (hasEnabled) detailParts.push(`enabled → ${body.enabled}`);
+    if (hasOpenForAll) detailParts.push(`openForAll → ${body.openForAll}`);
     AdminLog.create({
       adminId,
       action: 'settings_update',
       targetType: 'system',
-      details: `Registration ${body.enabled ? 'enabled' : 'disabled'}`,
+      details: `Registration settings updated (${detailParts.join(', ')})`,
     }).catch((err) => {
       adminLog.warn(`[registrationControl] audit log write failed: ${(err as Error).message}`);
     });
     res.json({
-      enabled: doc?.registrationEnabled ?? body.enabled,
+      enabled: doc?.registrationEnabled ?? Boolean(body.enabled),
+      openForAll: doc?.openForAll ?? Boolean(body.openForAll),
       lastToggledAt: doc?.lastToggledAt,
     });
   } catch (err) {
     adminLog.error(`[registrationControl] update failed: ${(err as Error).message}`);
     res.status(500).json({ message: 'Failed to update registration config.' });
+  }
+}
+
+/**
+ * Public read-only endpoint — used by the AuthModal on the public
+ * register tab to render the right copy ("registration closed" /
+ * "invite required" / "open to everyone") without forcing the user
+ * to submit and get a 403 first. Returns NO invite token / link —
+ * those stay admin-only.
+ *
+ * Mounted in modules/auth/auth.routes.ts (NOT in this admin router
+ * because it has no admin-only middleware chain).
+ */
+export async function publicGetRegistrationStatus(_req: Request, res: Response): Promise<void> {
+  try {
+    const doc = await ensureRegistrationConfig();
+    res.json({
+      enabled: doc.registrationEnabled,
+      openForAll: doc.openForAll,
+    });
+  } catch (err) {
+    adminLog.error(`[registrationControl] public status failed: ${(err as Error).message}`);
+    res.status(503).json({ message: 'Registration status unavailable.' });
   }
 }
 

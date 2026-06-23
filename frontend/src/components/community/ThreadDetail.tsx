@@ -103,6 +103,10 @@ export default function ThreadDetail({ postId, onClose }: ThreadDetailProps) {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportDone, setReportDone] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
   const [related, setRelated] = useState<{
     relatedQuestions: Array<{ _id: string; title: string; tags: string[]; matchScore: number; upvotes: number; url: string }>;
     similarFaqs:      Array<{ _id: string; title: string; tags: string[]; matchScore: number; upvotes: number; url: string }>;
@@ -417,11 +421,27 @@ export default function ThreadDetail({ postId, onClose }: ThreadDetailProps) {
                     </svg>
                     {isAnswered ? 'Edit Answer' : 'Answer'}
                   </button>
+                  {!isEditing && (
+                    <button
+                      onClick={() => {
+                        setEditTitle(post.title);
+                        setEditBody(post.body || '');
+                        setIsEditing(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-mist text-ink-soft hover:bg-border text-xs font-semibold border border-border transition-all"
+                      title="Edit post"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4">
+                        <path d="M8.5 1.5L10 3L4 9H2V7L8.5 1.5Z" strokeLinejoin="round"/>
+                      </svg>
+                      Edit
+                    </button>
+                  )}
                 </>
               )}
 
-              {/* Privileged delete */}
-              {isPrivileged && (
+              {/* Delete button (Author or Privileged) */}
+              {(currentUserId === post.author?._id || isPrivileged) && (
                 <button
                   onClick={async () => {
                     if (!confirm(`Delete post "${post.title}"? This cannot be undone.`)) return;
@@ -452,7 +472,18 @@ export default function ThreadDetail({ postId, onClose }: ThreadDetailProps) {
                     <div className="flex items-start gap-3.5 mb-4">
                       <Avatar name={post.author?.name} size="md" className="mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <h1 className="text-base sm:text-lg font-semibold text-ink leading-snug">{post.title}</h1>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-base sm:text-lg font-semibold rounded-xl border border-border bg-card text-ink focus:border-accent/40 outline-none"
+                            placeholder="Edit post title"
+                            required
+                          />
+                        ) : (
+                          <h1 className="text-base sm:text-lg font-semibold text-ink leading-snug">{post.title}</h1>
+                        )}
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <span className="text-sm font-medium text-ink-soft">{post.author?.name || 'Student'}</span>
                           <span className="text-xs text-ink-faint">·</span>
@@ -472,7 +503,49 @@ export default function ThreadDetail({ postId, onClose }: ThreadDetailProps) {
                     </div>
 
                     {/* Body */}
-                    <p className="text-sm text-ink/80 leading-relaxed mt-1">{post.body}</p>
+                    {isEditing ? (
+                      <div className="space-y-3 mt-3">
+                        <textarea
+                          value={editBody}
+                          onChange={(e) => setEditBody(e.target.value)}
+                          className="w-full h-40 px-3.5 py-2.5 text-sm rounded-xl border border-border bg-card text-ink focus:border-accent/40 outline-none resize-y"
+                          placeholder="Edit post body"
+                          required
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setIsEditing(false)}
+                            disabled={editLoading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              if (!editTitle.trim() || !editBody.trim() || editLoading) return;
+                              setEditLoading(true);
+                              try {
+                                const res = await api.patch(`/community/${post._id}`, { title: editTitle, body: editBody });
+                                setPost(res.data.post);
+                                setIsEditing(false);
+                              } catch (e) {
+                                setActionError(friendlyError(e, 'Failed to update post.'));
+                              } finally {
+                                setEditLoading(false);
+                              }
+                            }}
+                            loading={editLoading}
+                            disabled={!editTitle.trim() || !editBody.trim()}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink/80 leading-relaxed mt-1">{post.body}</p>
+                    )}
 
                     {/* Attachment thumbnails */}
                     {(() => {
@@ -695,18 +768,20 @@ export default function ThreadDetail({ postId, onClose }: ThreadDetailProps) {
             ) : (
               <div className="space-y-2">
                 {topLevelComments.map((comment: Comment) => (
-                                  <CommentNode
-                                    key={comment._id}
-                                    comment={comment}
-                                    postId={post?._id ?? ''}
-                                    currentUserId={user?._id ?? ''}
-                                    userRole={userRole}
-                                    onReplyAdded={handleReplyAdded}
-                                    onCommentDeleted={handleCommentDeleted}
-                                    threadColor={DEPTH_COLORS[0]}
-                                    barColor={DEPTH_BARS[0]}
-                                  />
-                                ))}
+                  <CommentNode
+                    key={comment._id}
+                    comment={comment}
+                    postId={post?._id ?? ''}
+                    currentUserId={user?._id ?? ''}
+                    userRole={userRole}
+                    postAuthorId={post?.author?._id}
+                    onReplyAdded={handleReplyAdded}
+                    onCommentDeleted={handleCommentDeleted}
+                    onPostUpdated={(updatedPost) => setPost(updatedPost)}
+                    threadColor={DEPTH_COLORS[0]}
+                    barColor={DEPTH_BARS[0]}
+                  />
+                ))}
                               </div>
                             )}
                           </div>

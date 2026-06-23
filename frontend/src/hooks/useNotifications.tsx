@@ -60,6 +60,15 @@ export function useNotifications() {
   useEffect(() => {
     fetchNotifications();
     fetchUnreadCount();
+
+    // H5: poll unread count on a 30s interval so the bell badge stays fresh.
+    // Without this, the badge is stuck until the user re-mounts the bell
+    // or refreshes the page. The NotificationBell already re-fetches on focus,
+    // so the interval only needs to cover backgrounded-tab time.
+    const intervalId = window.setInterval(() => {
+      fetchUnreadCount();
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
   }, [fetchNotifications, fetchUnreadCount]);
 
   return { notifications, unreadCount, loading, markAsRead, markAllAsRead, refresh: fetchNotifications };

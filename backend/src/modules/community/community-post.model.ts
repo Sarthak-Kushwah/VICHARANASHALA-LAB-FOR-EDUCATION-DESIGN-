@@ -89,6 +89,7 @@ export interface ICommunityPost extends Document {
   answerIsExpert?: boolean;
   answerAuthorId?: Types.ObjectId | null;
   upvotes: Types.ObjectId[];
+  bookmarks: Types.ObjectId[];
   // AI auto-answer fields
   aiAnswer?: string | null;
   aiAnswerConfidence?: number | null;   // 0–1
@@ -230,6 +231,7 @@ const communityPostSchema = new MongooseSchema(
       difficulty: { type: String, enum: ['Easy', 'Moderate', 'Tricky', null], default: null },
     },
     upvotes: { type: [MongooseSchema.Types.ObjectId], ref: 'User', default: [] },
+    bookmarks: { type: [MongooseSchema.Types.ObjectId], ref: 'User', default: [] },
     comments: { type: [commentSchema], default: [] },
     // Cloudinary image attachments. Capped at 4 in the controller — the
     // feed can show a grid up to that without reflowing the layout.
@@ -348,6 +350,7 @@ communityPostSchema.index({ status: 1, timeTrialStatus: 1, createdAt: 1 });
 communityPostSchema.index({ status: 1, aiAnswerStatus: 1, createdAt: 1 });
 // Index for upvote queries (uniqueness per-post is enforced by $addToSet in controller)
 communityPostSchema.index({ upvotes: 1 }, { sparse: true });
+communityPostSchema.index({ bookmarks: 1 }, { sparse: true });
 // Promotion query indexes
 communityPostSchema.index({ eligibleForPromotion: 1, promotionPendingAt: 1 });
 communityPostSchema.index({ status: 1, eligibleForPromotion: 1 });

@@ -57,7 +57,6 @@ const AdminZoomAssessmentsPage = lazy(() => import('../admin/pages/AdminZoomAsse
 const AdminZoomQuestionsPage = lazy(() => import('../admin/pages/AdminZoomQuestionsPage'));
 const AdminProjectsPage = lazy(() => import('../admin/pages/AdminProjectsPage'));
 const AdminLayout = lazy(() => import('../admin/components/layout/AdminLayout'));
-const AppSettingsAdminRouter = lazy(() => import('../admin/pages/AdminSettings').then(m => ({ default: m.default }))); // Wait, let's verify where appSettings router was imported. It was imported from app-settings.routes in App.tsx! Let's double check that below.
 
 export default function AppRoutes() {
   const { loading } = useAuth();

@@ -50,6 +50,27 @@ export async function startup(config: any): Promise<void> {
     startupLog.warn(`[registrationConfig] ensure failed at startup: ${(e as Error).message}`);
   }
 
+  // Synchronize existing bookmarks (idempotent backfill)
+  try {
+    const { default: User } = await import('../modules/auth/user.model.js');
+    const { default: CommunityPost } = await import('../modules/community/community-post.model.js');
+    const users = await User.find({ bookmarks: { $exists: true, $not: { $size: 0 } } }).select('_id bookmarks');
+    if (users.length > 0) {
+      logger.info(`[startup] Syncing bookmarks for ${users.length} users to community posts...`);
+      for (const user of users) {
+        for (const postId of user.bookmarks) {
+          await CommunityPost.updateOne(
+            { _id: postId },
+            { $addToSet: { bookmarks: user._id } }
+          );
+        }
+      }
+      logger.info(`[startup] Completed bookmarks synchronization.`);
+    }
+  } catch (err) {
+    logger.error(`[startup] Bookmarks sync failed: ${(err as Error).message}`);
+  }
+
   // Start schedulers & bots
   startEscalationScheduler();
   runScheduledAutoAnswer().catch((err) => logger.error(`[autoAnswer] Startup: ${(err as Error).message}`));

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api, { friendlyError } from '../../utils/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthModal } from '../../context/AuthModalContext';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 const ANON_AI_LIMIT = 5;
 const ANON_AI_COUNT_KEY = 'yaksha_anon_ai_count';
@@ -134,6 +135,12 @@ export default function AskAIButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // H36 — ref-mirrored attachments so the unmount cleanup can revoke
+  // the LATEST preview URLs, not just the empty array captured at mount.
+  const attachmentsRef = useRef<PendingAttachment[]>([]);
+  // H37 — in-flight ref so back-to-back Enter presses can't both pass the
+  // isLoading guard before `setIsLoading(true)` commits.
+  const sendInFlightRef = useRef(false);
 
   useEffect(() => { persistState(panel); }, [panel]);
   useEffect(() => { setAnonCount(isAuthenticated ? 0 : readAnonCount()); }, [isAuthenticated, panel]);
@@ -223,28 +230,42 @@ export default function AskAIButton() {
     });
   };
 
-  // Clean up object URLs on unmount or panel close.
-  useEffect(() => {
-    return () => { attachments.forEach((a) => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); }); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // H36 — keep attachmentsRef in sync so the unmount cleanup sees the
+  // latest URLs. Without this, the []-deps cleanup reads the FIRST
+  // render's empty array and leaks any URLs created later.
+  useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
+  useEffect(() => () => {
+    attachmentsRef.current.forEach((a) => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); });
   }, []);
+
+  // H38 — body scroll lock only when the panel is fully expanded. In the
+  // minimized corner state we leave scroll alone so the page stays usable
+  // behind the panel.
+  useBodyScrollLock(panel === 'expanded');
 
   const send = useCallback(async () => {
     const q = query.trim();
     // Need at least a question OR an attachment to send.
     if ((q.length < 3 && attachments.length === 0) || isLoading) return;
+    // H37 — guard with ref in addition to state. State guards race
+    // because the second invocation reads `isLoading` BEFORE the first
+    // call's `setIsLoading(true)` commits. Refs don't re-render.
     if (!isAuthenticated && readAnonCount() >= ANON_AI_LIMIT) { openModal('signin'); return; }
+    if (sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
     const hasAttachments = attachments.length > 0;
     const displayContent = q || (hasAttachments ? '(attachment)' : '');
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: displayContent };
     const aiMsg: ChatMessage = { id: `a-${Date.now()}`, role: 'assistant', content: '', loading: true };
+    // H37 — flip the spinner BEFORE the state mutations so the ref guard
+    // and the isLoading guard both see "in flight" on the next event tick.
+    setIsLoading(true);
     setMessages(m => [...m, userMsg, aiMsg]);
     setQuery('');
     // Detach the pending attachments (and their object URLs) into the message
     // send — we keep local state empty after the call returns.
     const sending = attachments.slice();
     setAttachments([]);
-    setIsLoading(true);
     try {
       let res;
       if (hasAttachments) {
@@ -266,7 +287,10 @@ export default function AskAIButton() {
       setMessages(m => m.map(msg => msg.id === aiMsg.id ? { ...msg, content: '', loading: false, error: friendlyError(err, 'Search failed. Please try again.') } : msg));
       // Put the attachments back so the user can retry without re-adding.
       setAttachments(sending);
-    } finally { setIsLoading(false); }
+    } finally {
+      sendInFlightRef.current = false;
+      setIsLoading(false);
+    }
   }, [query, isLoading, isAuthenticated, openModal, attachments]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
