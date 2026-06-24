@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import adminApi from '../utils/adminApi';
 
 interface GoldenTicket {
@@ -127,6 +128,9 @@ function GoldenTicketCardSkeleton(): React.ReactElement {
 }
 
 export default function AdminGoldenTickets(): React.ReactElement {
+  const [searchParams] = useSearchParams();
+  const q = searchParams.get('q') || '';
+  
   const [tickets, setTickets] = useState<GoldenTicket[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -151,7 +155,7 @@ export default function AdminGoldenTickets(): React.ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminApi.get<ListResponse>(`/admin/golden-tickets?page=${page}&limit=${LIMIT}`);
+      const res = await adminApi.get<ListResponse>(`/admin/golden-tickets?page=${page}&limit=${LIMIT}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
       setTickets(res.data.tickets);
       setPages(res.data.pagination.pages);
       setTotal(res.data.pagination.total);
@@ -162,7 +166,7 @@ export default function AdminGoldenTickets(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, q]);
 
   useEffect(() => { void fetchTickets(); }, [fetchTickets]);
 

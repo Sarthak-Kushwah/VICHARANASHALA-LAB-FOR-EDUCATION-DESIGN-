@@ -47,18 +47,9 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Support',
+    label: 'Support & Golden',
     items: [
-      { to: '/admin/support',           label: 'Inbox',         icon: SupportIcon, featureFlag: 'sessionSupport' },
-      { to: '/admin/support/analytics',  label: 'Analytics',     icon: ChartIcon, featureFlag: 'sessionSupport' },
-      { to: '/admin/support/categories', label: 'Schemas',       icon: ListIcon, featureFlag: 'sessionSupport' },
-      { to: '/admin/support/guidance',   label: 'Checklists',    icon: ChecklistIcon, featureFlag: 'sessionSupport' },
-    ],
-  },
-  {
-    label: 'Golden Tickets',
-    items: [
-      { to: '/admin/golden-tickets',     label: 'Queue',         icon: GoldenTicketIcon, featureFlag: 'goldenTicket' },
+      { to: '/admin/support', label: 'Support Dashboard', icon: SupportIcon, featureFlag: 'sessionSupport' },
     ],
   },
   {
@@ -120,30 +111,15 @@ function SidebarContent({ onMobileClose }: { onMobileClose: () => void }) {
   }).filter((group) => group.items.length > 0);
 
   return (
-    <div className="flex flex-col h-full bg-card border-r border-border">
-      {/* Brand */}
-      <div className="px-4 py-4 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-accent">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-          <div>
-            <p className="text-[13px] font-semibold text-ink leading-none">Yaksha</p>
-            <p className="text-[10px] text-ink-faint mt-0.5">Admin Console</p>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex flex-col h-full overflow-hidden text-ink">
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar">
         {filteredNav.map((group) => (
-          <div key={group.label} className="mb-4">
-            <p className="px-3 py-1.5 text-[10px] font-semibold text-ink-faint uppercase tracking-widest">
+          <div key={group.label} className="mb-6">
+            <p className="px-3 pb-2 text-[10px] font-bold text-ink-faint uppercase tracking-widest">
               {group.label}
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -151,9 +127,9 @@ function SidebarContent({ onMobileClose }: { onMobileClose: () => void }) {
                   end={item.end}
                   onClick={onMobileClose}
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                    `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 ${
                       isActive
-                        ? 'bg-accent/10 text-accent font-medium border border-accent/15'
+                        ? 'bg-accent/10 text-accent font-semibold shadow-sm'
                         : 'text-ink-soft hover:text-ink hover:bg-mist'
                     }`
                   }
@@ -166,24 +142,6 @@ function SidebarContent({ onMobileClose }: { onMobileClose: () => void }) {
           </div>
         ))}
       </nav>
-
-      {/* User */}
-      <div className="px-3 pb-4 pt-3 border-t border-border">
-        <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-          <div className="w-7 h-7 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-[11px] font-semibold text-accent shrink-0">
-            {user?.name?.[0]?.toUpperCase() ?? 'A'}
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-ink truncate">{user?.name ?? 'Admin'}</p>
-            <p className="text-[10px] text-ink-faint truncate">{user?.email ?? ''}</p>
-          </div>
-        </div>
-        <button onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-faint hover:text-ink hover:bg-mist transition-all">
-          <LogoutIcon />
-          <span>Sign out</span>
-        </button>
-      </div>
     </div>
   );
 }
@@ -193,7 +151,7 @@ interface AdminSidebarProps { mobileOpen: boolean; onMobileClose: () => void; }
 export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebarProps) {
   return (
     <>
-      <aside className="hidden lg:flex flex-col w-56 shrink-0 fixed left-0 top-20 h-[calc(100vh-5rem)] z-30 bg-card border-r border-border">
+      <aside className="hidden lg:flex flex-col w-[260px] shrink-0 sticky top-24 h-[calc(100vh-8rem)] bg-card rounded-2xl border border-border/60 shadow-sm ml-6 z-30 overflow-hidden">
         <SidebarContent onMobileClose={onMobileClose} />
       </aside>
       <AnimatePresence>
@@ -201,9 +159,9 @@ export default function AdminSidebar({ mobileOpen, onMobileClose }: AdminSidebar
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm lg:hidden" onClick={onMobileClose} />
-            <motion.aside initial={{ x: -240 }} animate={{ x: 0 }} exit={{ x: -240 }}
+            <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-              className="fixed left-0 top-20 h-[calc(100vh-5rem)] w-56 z-50 lg:hidden bg-card border-r border-border">
+              className="fixed left-0 top-16 bottom-0 w-[280px] z-50 lg:hidden bg-card border-r border-border/60 shadow-xl overflow-hidden">
               <SidebarContent onMobileClose={onMobileClose} />
             </motion.aside>
           </>

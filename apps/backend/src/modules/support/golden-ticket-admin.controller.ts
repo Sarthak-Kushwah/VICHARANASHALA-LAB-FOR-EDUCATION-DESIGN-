@@ -127,14 +127,27 @@ export async function listGoldenTickets(req: Request, res: Response): Promise<vo
     const skip = (page - 1) * limit;
     const status = String(req.query.status ?? 'open');
 
-    // §1: only show "active" (non-finalized) tickets. The Support
-    // namespace owns the closed-ones view; this list is for triage.
     const filter: Record<string, unknown> = {
       isGolden: true,
       status: { $nin: ['Resolved', 'Rejected', 'closed'] },
     };
     if (status === 'closed') {
       filter.status = { $in: ['Resolved', 'Rejected', 'closed'] };
+    }
+
+    const q = String(req.query.q ?? '').trim();
+    if (q) {
+      // Escape regex special characters
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapeRegex(q).slice(0, 120), 'i');
+      filter.$or = [
+        { userName: regex },
+        { userEmail: regex },
+        { title: regex },
+        { details: regex },
+        { adminNote: regex },
+        { resolutionSummary: regex },
+      ];
     }
 
     // §2: We need to sort by `user.sp` (a different collection).

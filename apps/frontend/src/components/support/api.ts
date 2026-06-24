@@ -143,9 +143,9 @@ export interface GoldenQueueResponse {
  * Non-admin callers see requester name as 'ANONYMOUS' for tickets
  * they didn't submit.
  */
-export async function fetchGoldenQueue(limit = 8): Promise<GoldenQueueResponse> {
+export async function fetchGoldenQueue(limit = 8, q?: string): Promise<GoldenQueueResponse> {
   const res = await api.get<GoldenQueueResponse>('/support/golden/queue', {
-    params: { limit },
+    params: { limit, q },
   });
   return res.data;
 }

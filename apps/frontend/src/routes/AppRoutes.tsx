@@ -56,7 +56,28 @@ const AdminWelcomePage = lazy(() => import('../admin/pages/AdminWelcomePage'));
 const AdminZoomAssessmentsPage = lazy(() => import('../admin/pages/AdminZoomAssessmentsPage'));
 const AdminZoomQuestionsPage = lazy(() => import('../admin/pages/AdminZoomQuestionsPage'));
 const AdminProjectsPage = lazy(() => import('../admin/pages/AdminProjectsPage'));
+const AdminSupportLayout = lazy(() => import('../admin/components/layout/AdminSupportLayout'));
 const AdminLayout = lazy(() => import('../admin/components/layout/AdminLayout'));
+
+function SupportRoute() {
+  return <SupportIndexPage />;
+}
+
+function SupportNewRoute() {
+  return <NewSupportRequestPage />;
+}
+
+function SupportTicketRoute() {
+  return <SupportTicketPage />;
+}
+
+function GoldenRoute() {
+  return (
+    <FeatureGate featureKey="goldenTicket" featureLabel="Golden Ticket">
+      <GoldenTicketPage />
+    </FeatureGate>
+  );
+}
 
 export default function AppRoutes() {
   const { loading } = useAuth();
@@ -84,17 +105,10 @@ export default function AppRoutes() {
             <Route path="/faq/:id" element={<FAQPage />} />
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/saved" element={<SavedKnowledgePage />} />
-            <Route path="/support" element={<SupportIndexPage />} />
-            <Route path="/support/new" element={<NewSupportRequestPage />} />
-            <Route path="/support/:id" element={<SupportTicketPage />} />
-            <Route
-              path="/golden"
-              element={
-                <FeatureGate featureKey="goldenTicket" featureLabel="Golden Ticket">
-                  <GoldenTicketPage />
-                </FeatureGate>
-              }
-            />
+            <Route path="/support" element={<SupportRoute />} />
+            <Route path="/support/new" element={<SupportNewRoute />} />
+            <Route path="/support/:id" element={<SupportTicketRoute />} />
+            <Route path="/golden" element={<GoldenRoute />} />
             <Route path="/program/:slug" element={<ProgramPage />} />
             <Route
               path="/account"
@@ -142,14 +156,16 @@ export default function AppRoutes() {
           <Route path="/admin/programs/:id/categories" element={<AdminRoute><AdminLayout><AdminDynamicCategoriesPage /></AdminLayout></AdminRoute>} />
           <Route path="/admin/programs" element={<AdminRoute><AdminLayout><AdminProgramDashboard /></AdminLayout></AdminRoute>} />
           <Route path="/admin/programs/:id" element={<AdminRoute><AdminLayout><AdminProgramDetail /></AdminLayout></AdminRoute>} />
- 
-          <Route path="/admin/support" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Tickets"><AdminSupportInbox /></FeatureGate></AdminLayout></AdminRoute>} />
-          <Route path="/admin/support/analytics" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Analytics"><AdminSupportAnalytics /></FeatureGate></AdminLayout></AdminRoute>} />
-          <Route path="/admin/support/guidance" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Checklist"><AdminSupportGuidance /></FeatureGate></AdminLayout></AdminRoute>} />
-          <Route path="/admin/support/categories" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Schema"><AdminSupportCategories /></FeatureGate></AdminLayout></AdminRoute>} />
-          <Route path="/admin/golden-tickets" element={<AdminRoute><AdminLayout><FeatureGate featureKey="goldenTicket" featureLabel="Golden Ticket Queue"><AdminGoldenTickets /></FeatureGate></AdminLayout></AdminRoute>} />
-          <Route path="/admin/support/:id" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Ticket Detail"><AdminSupportTicket /></FeatureGate></AdminLayout></AdminRoute>} />
- 
+          <Route path="/admin/support" element={<AdminRoute><AdminLayout><FeatureGate featureKey="sessionSupport" featureLabel="Support Dashboard"><AdminSupportLayout /></FeatureGate></AdminLayout></AdminRoute>}>
+            <Route index element={<AdminSupportInbox />} />
+            <Route path="analytics" element={<AdminSupportAnalytics />} />
+            <Route path="guidance" element={<AdminSupportGuidance />} />
+            <Route path="categories" element={<AdminSupportCategories />} />
+            <Route path=":id" element={<AdminSupportTicket />} />
+          </Route>
+          <Route path="/admin/golden-tickets" element={<AdminRoute><AdminLayout><FeatureGate featureKey="goldenTicket" featureLabel="Golden Tickets"><AdminSupportLayout /></FeatureGate></AdminLayout></AdminRoute>}>
+            <Route index element={<AdminGoldenTickets />} />
+          </Route>
           <Route path="/admin/features" element={<AdminRoute><AdminLayout><AdminFeatures /></AdminLayout></AdminRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -31,6 +31,7 @@ import {
   notifyUser,
   isGoldenTicket,
   requireFeatureOn,
+  escapeRegex,
 } from './support-core.controller.js';
 import { awardSpurtiPoints, spendSpurtiPoints, refundSpurtiPoints } from '../program/promotion.service.js';
 // L1 fix (v1.68): use the named `adminLog` for admin-action
@@ -476,11 +477,24 @@ export async function getGoldenQueue(req: Request, res: Response): Promise<void>
       mySpCost = myActiveTicket.spCost;
     }
 
-    // 2. Fetch the top `limit` pending Golden Tickets
-    const docs = await SupportRequest.find({ 
+    const filter: Record<string, any> = { 
       isGolden: true,
       status: { $in: ['Pending', 'In Review', 'open'] }
-    })
+    };
+    
+    const q = asStringParam(req.query.q);
+    if (q) {
+      const regex = new RegExp(escapeRegex(q).slice(0, 120), 'i');
+      filter.$or = [
+        { userName: regex },
+        { userEmail: regex },
+        { title: regex },
+        { details: regex }
+      ];
+    }
+
+    // 2. Fetch the top `limit` pending Golden Tickets
+    const docs = await SupportRequest.find(filter)
       .sort({ spCost: -1, createdAt: 1 })
       .limit(limit)
       .select('userId userName title details spCost status createdAt')

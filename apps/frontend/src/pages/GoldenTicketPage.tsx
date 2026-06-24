@@ -21,7 +21,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   fetchGoldenQueue,
@@ -99,6 +99,8 @@ function AnimatedNumber({ value }: { value: string }) {
 export default function GoldenTicketPage(): React.ReactElement {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const q = searchParams.get('q');
   const isAuthed = Boolean(user?.id);
 
   const [status, setStatus] = useState<SpurtiStatus | null>(null);
@@ -151,7 +153,7 @@ export default function GoldenTicketPage(): React.ReactElement {
     if (!isAuthed) return;
     setQueueLoading(true);
     try {
-      const { items, myQueuePosition, ticketsAhead, mySpCost } = await fetchGoldenQueue(8);
+      const { items, myQueuePosition, ticketsAhead, mySpCost } = await fetchGoldenQueue(8, q || undefined);
       setQueue(items);
       setMyQueuePosition(myQueuePosition ?? null);
       setTicketsAhead(ticketsAhead ?? null);
@@ -164,7 +166,7 @@ export default function GoldenTicketPage(): React.ReactElement {
     } finally {
       setQueueLoading(false);
     }
-  }, [isAuthed]);
+  }, [isAuthed, q]);
 
   useEffect(() => { void reloadStatus(); }, [reloadStatus]);
   useEffect(() => { void reloadQueue(); }, [reloadQueue]);

@@ -13,6 +13,7 @@ import type { SearchResult, TrendingQuery } from '../../types/ui';
 
 interface InteractiveSearchOverlayProps {
   onSearchComplete?: (query: string) => void;
+  variant?: 'default' | 'compact';
 }
 
 const fallbackPopular = [
@@ -23,7 +24,7 @@ const fallbackPopular = [
   'certificate',
 ];
 
-export default function InteractiveSearchOverlay({ onSearchComplete }: InteractiveSearchOverlayProps) {
+export default function InteractiveSearchOverlay({ onSearchComplete, variant = 'default' }: InteractiveSearchOverlayProps) {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -162,7 +163,7 @@ export default function InteractiveSearchOverlay({ onSearchComplete }: Interacti
         />
       )}
       
-      <div className="relative z-40 w-full max-w-3xl mx-auto">
+      <div className={`relative z-40 w-full ${variant === 'default' ? 'max-w-3xl mx-auto' : ''}`}>
         <SearchBar
           ref={searchBarRef}
           value={query}
@@ -171,10 +172,11 @@ export default function InteractiveSearchOverlay({ onSearchComplete }: Interacti
           onLoading={setLoading}
           onError={setSearchError}
           disableSuggestions={true}
+          variant={variant}
         />
 
         {showDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-3 z-50 animate-fade-in text-left">
+          <div className={`absolute ${variant === 'compact' ? 'right-0 w-[480px] lg:w-[600px] max-w-[100vw]' : 'left-0 right-0 max-w-3xl'} top-full mt-3 z-50 animate-fade-in text-left`}>
             <div className="search-panel">
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <div>

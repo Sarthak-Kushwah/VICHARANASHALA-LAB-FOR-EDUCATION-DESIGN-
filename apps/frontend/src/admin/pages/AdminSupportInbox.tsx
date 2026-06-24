@@ -99,28 +99,6 @@ function InboxInner(): React.ReactElement {
           {SUPPORT_ISSUE_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
         </select>
         <input
-          type="text"
-          placeholder="Search user / email / text…"
-          defaultValue={q}
-          onKeyDown={(e) => { if (e.key === 'Enter') setParam('q', (e.target as HTMLInputElement).value); }}
-          onBlur={(e) => setParam('q', e.target.value)}
-          className="admin-search-input"
-        />
-        <input
-          type="text"
-          placeholder="Name"
-          defaultValue={userName}
-          onBlur={(e) => setParam('userName', e.target.value)}
-          className="admin-search-input w-32"
-        />
-        <input
-          type="text"
-          placeholder="Email"
-          defaultValue={email}
-          onBlur={(e) => setParam('email', e.target.value)}
-          className="admin-search-input w-40"
-        />
-        <input
           type="date"
           value={from}
           onChange={(e) => setParam('from', e.target.value)}

@@ -1,7 +1,7 @@
 // User-facing "My Support Tickets" page. Gated by the feature flag.
 
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FeatureGate } from '../components/support/FeatureGate';
 import { listSupportRequests, SUPPORT_ISSUE_OPTIONS } from '../components/support/api';
 import { getIssueIcon } from '../components/support/icons';
@@ -20,11 +20,13 @@ function SupportIndexInner(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const q = searchParams.get('q');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listSupportRequests({ limit: 50 })
+    listSupportRequests({ limit: 50, q: q || undefined })
       .then((res) => { if (!cancelled) setData(res); })
       .catch((err) => {
         if (cancelled) return;

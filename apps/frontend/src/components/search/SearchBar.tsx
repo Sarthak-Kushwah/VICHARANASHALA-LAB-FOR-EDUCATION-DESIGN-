@@ -22,6 +22,7 @@ interface SearchBarProps {
   onBlur?: () => void;
   className?: string;
   disableSuggestions?: boolean;
+  variant?: 'default' | 'compact';
 }
 
 const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function SearchBar(
@@ -36,6 +37,7 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function Se
     onBlur,
     className = '',
     disableSuggestions = false,
+    variant = 'default',
   },
   ref
 ) {
@@ -159,12 +161,11 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function Se
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`w-full max-w-3xl mx-auto ${className}`}>
-      <div ref={wrapperRef} className="relative search-glow rounded-[26px] transition-all duration-300">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M13 13L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <form onSubmit={handleSubmit} className={`w-full ${variant === 'default' ? 'max-w-3xl mx-auto' : ''} ${className}`}>
+      <div ref={wrapperRef} className={`relative transition-all duration-300 ${variant === 'default' ? 'search-glow rounded-[26px]' : ''}`}>
+        <div className={`absolute top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none ${variant === 'compact' ? 'left-3.5 w-4 h-4 group-focus-within:text-accent transition-colors' : 'left-4'}`}>
+          <svg width={variant === 'compact' ? '16' : '18'} height={variant === 'compact' ? '16' : '18'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         </div>
 
@@ -184,21 +185,26 @@ const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(function Se
           onFocus={onFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className="w-full pl-12 pr-32 py-5 sm:py-[22px] rounded-[26px] border border-border bg-card text-sm sm:text-base text-ink placeholder-ink-faint focus:outline-none focus:border-accent focus:bg-card transition-all duration-300 shadow-[0_14px_34px_rgba(31,41,51,0.07)]"
+          className={variant === 'compact' 
+            ? "w-full bg-mist border border-border/60 text-ink text-sm rounded-[14px] pl-10 pr-3 py-1.5 outline-none focus:bg-card focus:border-accent/40 focus:ring-2 focus:ring-accent/10 transition-all placeholder-ink-faint"
+            : "w-full pl-12 pr-32 py-5 sm:py-[22px] rounded-[26px] border border-border bg-card text-sm sm:text-base text-ink placeholder-ink-faint focus:outline-none focus:border-accent focus:bg-card transition-all duration-300 shadow-[0_14px_34px_rgba(31,41,51,0.07)]"
+          }
           autoComplete="off"
         />
 
-        <button
-          type="submit"
-          disabled={!query.trim()}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 btn-base btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <circle cx="5.5" cy="5.5" r="4"/>
-            <path d="M9.5 9.5L12.5 12.5"/>
-          </svg>
-          Search
-        </button>
+        {variant === 'default' && (
+          <button
+            type="submit"
+            disabled={!query.trim()}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 btn-base btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="5.5" cy="5.5" r="4"/>
+              <path d="M9.5 9.5L12.5 12.5"/>
+            </svg>
+            Search
+          </button>
+        )}
 
         {/* Suggestions dropdown */}
         {!disableSuggestions && showSuggestions && suggestions.length > 0 && (

@@ -426,7 +426,7 @@ export async function listSupportRequests(req: Request, res: Response): Promise<
       // userId in the filter and might be a Golden ticket owner).
       filter.isGolden = { $ne: true };
     }
-    if (isAdmin && q) {
+    if (q) {
       const regex = new RegExp(escapeRegex(q).slice(0, 120), 'i');
       filter.$or = [
         { userName: regex },
