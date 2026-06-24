@@ -384,6 +384,35 @@ check_for_updates() {
   echo ""
 }
 
+# ── Read a var from .env or .env.local ────────────────────────────────────────
+read_env_with_local() {
+  local var_name=$1
+  local val
+  val=$(grep "^${var_name}=" "$BACKEND/.env.local" 2>/dev/null | head -1 | cut -d'=' -f2- | sed "s/^['\"]//g;s/['\"]$//g" || echo "")
+  if [ -z "$val" ]; then
+    val=$(grep "^${var_name}=" "$BACKEND/.env" 2>/dev/null | head -1 | cut -d'=' -f2- | sed "s/^['\"]//g;s/['\"]$//g" || echo "")
+  fi
+  echo "$val"
+}
+
+# ── Check GCS credentials and connection ─────────────────────────────────────
+check_gcs_connection() {
+  local bucket
+  bucket=$(read_env_with_local "GCS_BUCKET")
+  if [ -z "$bucket" ] || [[ "$bucket" == dummy* ]]; then
+    dim "GCS is not configured or using dummy bucket ($bucket) — skipping GCS network check"
+    return 0
+  fi
+
+  log "verifying GCS connection..."
+  if (cd "$BACKEND" && npx tsx src/scripts/testGcsConnection.ts >/tmp/gcs-test.log 2>&1); then
+    ok "GCS connection check passed successfully"
+  else
+    warn "GCS connection check failed. Image uploads may 503."
+    dim "Check /tmp/gcs-test.log for full details."
+  fi
+}
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 echo ""
 check_for_updates
@@ -392,6 +421,7 @@ alert "Yaksha FAQ Portal — full stack runner"
 echo ""
 
 setup_env
+check_gcs_connection
 
 if check_url_alive; then
   warn "frontend already live on 5173 — clearing ports"
