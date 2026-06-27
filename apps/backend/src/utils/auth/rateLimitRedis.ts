@@ -109,6 +109,19 @@ function getRedisClient(): IORedis | null {
   return _client;
 }
 
+function getFailSafeReply(args: string[]): RedisReply {
+  const cmd = args[0]?.toUpperCase();
+  if (cmd === 'SCRIPT') {
+    return 'failsafe_sha';
+  }
+  if (cmd === 'EVALSHA' || cmd === 'EVAL') {
+    // Return [ totalHits, timeToExpire ]
+    // We simulate 1 hit and 60,000 milliseconds remaining (60 seconds)
+    return [1, 60000] as unknown as RedisReply;
+  }
+  return 'OK' as unknown as RedisReply;
+}
+
 /**
  * Returns a new RedisStore instance with a unique prefix when REDIS_TCP_URL is set,
  * or undefined to signal express-rate-limit to use its default in-memory Map.
@@ -122,8 +135,12 @@ export function getRedisRateLimitStore(prefix: string): Store | undefined {
       // any Redis-compatible client. The signature expects
       // Promise<RedisReply>; cast the ioredis return value through unknown.
       sendCommand: async (...args: string[]): Promise<RedisReply> => {
+        let activeClient = _client || getRedisClient();
+        if (!activeClient) {
+          return getFailSafeReply(args);
+        }
         try {
-          return await (client.call(...(args as [string, ...string[]])) as unknown as Promise<RedisReply>);
+          return await (activeClient.call(...(args as [string, ...string[]])) as unknown as Promise<RedisReply>);
         } catch (err) {
           const msg = (err as Error).message || '';
           const lowerMsg = msg.toLowerCase();
@@ -135,16 +152,21 @@ export function getRedisRateLimitStore(prefix: string): Store | undefined {
             lowerMsg.includes('limit exceeded') ||
             lowerMsg.includes('max requests')
           ) {
-            let activeClient = _client;
-            if (!useLocalFallback || !activeClient) {
+            if (!useLocalFallback) {
               logger.warn(`[rateLimitRedis] Upstash Redis error detected in command: ${msg}. Switching to local Redis fallback.`);
               useLocalFallback = true;
               activeClient = buildLocalClient();
               _client = activeClient;
             }
-            return await (activeClient.call(...(args as [string, ...string[]])) as unknown as Promise<RedisReply>);
+            try {
+              return await (activeClient.call(...(args as [string, ...string[]])) as unknown as Promise<RedisReply>);
+            } catch (fallbackErr) {
+              logger.error(`[rateLimitRedis] Fallback Redis command also failed: ${(fallbackErr as Error).message}. Using fail-safe mock response.`);
+              return getFailSafeReply(args);
+            }
           }
-          throw err;
+          logger.error(`[rateLimitRedis] Redis command failed: ${msg}. Using fail-safe mock response.`);
+          return getFailSafeReply(args);
         }
       },
       prefix: `rl:${prefix}:`,  // unique namespace in Redis per limiter
