@@ -68,6 +68,23 @@ jobs:
 
             echo "==> Reloading nginx..."
             sudo systemctl reload nginx
+
+            echo "==> Debugging VPS service state..."
+            sleep 5
+            echo "1. Checking if port 6767 is active:"
+            ss -lptn 'sport = :6767' 2>/dev/null || netstat -lptn 2>/dev/null | grep 6767 || echo "❌ No process listening on 6767"
+
+            echo "2. Listing running node/tsx processes:"
+            ps aux | grep -E "node|tsx" | grep -v grep || echo "❌ No active Node processes found"
+
+            echo "3. Dumping latest session log:"
+            LATEST_LOG=$(ls -t logs/session_*.txt 2>/dev/null | head -n 1 || true)
+            if [ -n "$LATEST_LOG" ] && [ -f "$LATEST_LOG" ]; then
+              echo "   Latest log: $LATEST_LOG"
+              tail -n 100 "$LATEST_LOG" || true
+            else
+              echo "⚠️  No session log files found!"
+            fi
             
             echo "==> Deployment complete."
           DEPLOY
