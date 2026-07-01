@@ -303,6 +303,56 @@ Goal: ship confidence.
 
 ---
 
+## 4.5 Frontend gaps (from audit 9/9)
+
+The frontend audit surfaced patterns specific to the React side that don't fit under backend redesigns. Adding them here.
+
+### Frontend critical (must fix)
+
+| Issue | File | Severity |
+|---|---|---|
+| **In-house vs ShadCN naming collision** — `Button.tsx` PascalCase + `components.json` ui alias = macOS case-insensitive APFS collision risk on next `npx shadcn add`. Decide in-house-wins / ShadCN-wins / hybrid **before** installing any ShadCN component | `src/components/ui/Button.tsx`, `components.json` | HIGH |
+| **`AdminProgramScopeWiring` exported but no caller found** — interceptor's `lastKnownProgramId` stays null, every admin call silently omits `batchId`. Silent cross-tenant data leak | `admin/utils/adminScopedApi.ts:74-121` | **HIGH — silent data isolation** |
+| **`api.ts` interceptor reads program id from `localStorage`, not from `useCurrentProgramId()`** — two sources of truth, can drift | `api.ts:166-169` | MEDIUM |
+| **`Avatar` is hard-`aria-hidden`** even when representing an identity | `Avatar.tsx:49` | MEDIUM |
+| **`Button`/`Card` missing `type="button"` default** — accidental form submission hazard | `Button.tsx:40-68`, `Card.tsx:27-31` | MEDIUM |
+| **`useProgramScopedFetch` no cancellation** — rapid program switch leaves stale fetches to win | `useProgramScopedFetch.ts:37-46` | MEDIUM |
+| **`FeatureFlagContext` treats unknown flag key identically to disabled** — admin typo == silently off feature, no diagnostic | `FeatureFlagContext.tsx:91-94` | MEDIUM |
+| **`ErrorBoundary` hard-coded `/csfaq/api/log`** — fails if basename changes | `ErrorBoundary.tsx:79` | LOW |
+| **`api.ts:71-78` cache invalidation is coarse** — any non-search mutation wipes the whole cache | `api.ts` | MEDIUM |
+| **`useAuth` mount-fetch has no `AbortController`** — setState on unmounted component | `useAuth.tsx:79-87` | LOW |
+
+### Frontend quick wins
+
+1. Add `type="button"` default to `Button.tsx` and `Card.tsx` (2 lines)
+2. `Avatar.tsx` — switch `aria-hidden="true"` to a `decorative?: boolean` prop
+3. `ErrorBoundary.tsx:79` — read `import.meta.env.VITE_API_URL` instead of hard-coded path
+4. `useAuth` mount-fetch — add `AbortController` + cleanup
+5. Remove dead `useProgramQueryParam` alias (`useProgramScopedApi.ts:37-39`)
+6. Remove empty `variantStyles` record in `Button.tsx:13-19`
+7. Remove dead default export in `PageDoodles.tsx:276`
+8. Add `aria-invalid={!!error} aria-describedby={errorId}` to `Input.tsx`
+9. Wire `ErrorBoundary` per route in `AppRoutes.tsx`
+10. Cancel `useProgramScopedFetch` in-flight fetches on program switch
+
+### Frontend big redesigns
+
+- **R9: Decide design-system ownership (in-house / ShadCN / hybrid)** before any `shadcn add`. Recommend hybrid: ShadCN for primitives (`Button`, `Input`, `Card`, `Dialog`, `Select`), in-house for product-specific (`CTA`, `PageDoodles`, `TimelineCardHeader`). Migration path: rename `Button.tsx` → `Button/index.tsx` (kebab) to free the PascalCase slot. Or keep both, document the convention.
+- **R10: Migrate to TanStack Query.** The codebase explicitly says it doesn't use React Query today (`useProgramScopedApi.ts:14-22`). Migrating fixes: shared cache, dedup, optimistic-update primitives, auto-refetch on focus, admin scope interceptor problem (replace `_set` hack with `useQuery(['admin', path, activeProgramId])`). Incremental per-feature-area: install `@tanstack/react-query`, wrap in `QueryClientProvider`, replace the largest useEffect+useState+axios patterns first.
+- **R11: Per-route `ErrorBoundary` + per-route `Suspense` + standardized `useApiCall` hook** returning `{ data, loading, error, refetch }`. Every page reinvents today.
+
+### Adding Phase 1.5 to the plan
+
+Between Phase 1 (architectural foundations) and Phase 2 (context retriever), add **Phase 1.5 — Frontend foundations (~2-3 days)**:
+
+- R9 (design-system ownership) — explicit decision + migration of one primitive as proof
+- R10 install + minimal migration — wrap App in QueryClientProvider, migrate search + community feed
+- Per-route ErrorBoundary wrap
+
+Then Phase 2 builds the context retriever against the new query layer.
+
+---
+
 ## 5. What's NOT in scope (deliberate)
 
 - Discord bot rewrite
@@ -324,11 +374,15 @@ Goal: ship confidence.
 
 2. **Embedding model?** Audit found `EMBEDDING_DIM = 1024` (mxbai-embed-large) hardcoded. **Decision needed:** stay on mixedbread, or move to OpenAI text-embedding-3-small (cheaper, 1536-dim)? Either way, migration script for `embeddingVersion` field on every doc.
 
-3. **Phase ordering.** The plan above goes Phase 0 → 1 → 2 → 3 → 4. **Decision needed:** do you want to skip Phase 0/1 and go straight to Phase 2+3 (the new feature) and let the architectural cleanup ride along later? Or stick to the sequenced plan?
+3. **Phase ordering.** The plan above goes Phase 0 → 1 → 1.5 → 2 → 3 → 4. **Decision needed:** do you want to skip Phase 0/1 and go straight to Phase 2+3 (the new feature) and let the architectural cleanup ride along later? Or stick to the sequenced plan?
 
 4. **Admin UI scope for the flag registry (R1).** New `/admin/feature-flags` page needed. **Decision needed:** build it as part of Phase 1, or stub it (env-var + DB only) and add the UI in Phase 4?
 
 5. **Vector index on `ProgramKnowledge`.** Atlas has 1024-dim limit per index. If we add `ProgramKnowledge` with vector index, that's a third 1024-dim index in the cluster. **Decision needed:** OK to add, or move to a dedicated vector DB as part of this work?
+
+6. **Design-system ownership (R9).** In-house / ShadCN / hybrid? Recommend hybrid. **Decision needed:** lock this in BEFORE the next `shadcn add` to avoid the macOS case-insensitive file collision risk.
+
+7. **TanStack Query migration scope (R10).** Big lift — every page reinvents data fetching today. **Decision needed:** full migration, or selective (just the auto-answer queue + search/community in Phase 1.5)?
 
 ---
 
