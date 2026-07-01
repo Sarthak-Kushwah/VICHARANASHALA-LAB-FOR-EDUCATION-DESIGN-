@@ -8,6 +8,7 @@ import { runScheduledAutoAnswer, stopAutoAnswerScheduler } from '../modules/ai/a
 import { runScheduledFAQAudit, stopFAQAuditScheduler } from '../modules/faq/faq-audit.controller.js';
 import { startDocumentWorker, stopDocumentWorker } from '../utils/jobs/documentQueue.js';
 import { notificationsService } from '../services/notifications.service.js';
+import { banService } from '../services/ban.service.js';
 import { cronManager } from '../core/scheduler/cronManager.js';
 import mongoose from 'mongoose';
 import { jobQueue } from '../utils/http/jobQueue.js';
@@ -130,6 +131,20 @@ export async function startup(config: any): Promise<void> {
     name: 'retention-policy',
     handler: runRetention,
     intervalMs: config.cron.retentionPolicyIntervalMs,
+    runOnStartup: true,
+  });
+
+  // Phase 1 R4 — clear expired Golden-bans on a schedule. The
+  // existing ad-hoc call inside escalationController still fires
+  // (every escalation-check tick) — that's fine, the function is
+  // idempotent — but registering it with cronManager here means a
+  // future refactor of the escalation scheduler can't silently
+  // drop the ban-cleanup schedule. Audit context:
+  // docs/redesign-plan.md §2.4 R4.
+  cronManager.register({
+    name: 'ban-cleanup',
+    handler: () => banService.clearExpiredGoldenBans(),
+    intervalMs: 60 * 60 * 1000, // 1h, matches escalation cadence
     runOnStartup: true,
   });
 
