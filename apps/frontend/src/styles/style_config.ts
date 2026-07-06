@@ -275,3 +275,38 @@ export const searchSuggestionItem = 'w-full text-left px-5 py-3.5 text-sm text-i
 export const exploreSearchBar   = 'w-full pl-12 pr-24 py-3.5 rounded-full border border-border/70 bg-card text-sm text-ink placeholder-ink-faint focus:outline-none focus:border-accent/50 focus:bg-card transition-all duration-200 shadow-subtle';
 export const exploreSearchIcon  = 'absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none';
 export const exploreSearchClear = 'absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-faint hover:text-ink px-2 py-1 rounded-full hover:bg-mist transition-colors';
+
+/* ── 21. Topbar / navbar chrome ───────────────────────────────────
+ * The pill button + dropdown panel that hold the program-switcher,
+ * user-menu, etc. on the public-site navbar. */
+
+export const topbarPill         = 'inline-flex items-center gap-2 h-9 px-3 rounded-full bg-card border border-border/70 text-xs text-ink font-medium hover:border-accent/60 transition-colors shadow-sm';
+export const topbarPillCompact  = 'inline-flex items-center gap-2 px-2.5 py-1 text-[11px] rounded-full bg-card border border-border/70 text-xs text-ink font-medium hover:border-accent/60 transition-colors shadow-sm';
+export const topbarPillIdle     = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/70 text-xs text-ink-soft';
+export const topbarPillLoading  = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/70 text-xs text-ink-soft';
+export const topbarPillDot      = 'w-3 h-3 rounded-full bg-mist animate-pulse';
+
+export const topbarDropdown     = 'absolute right-0 top-full mt-2 z-40 w-72 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-2xl shadow-float overflow-hidden animate-fade-in';
+export const topbarDropdownHeader = 'px-4 py-3 border-b border-border/60';
+export const topbarDropdownFooter = 'border-t border-border/60 p-1.5';
+
+export const topbarDropdownItem       = 'w-full text-left px-4 py-2.5 hover:bg-mist transition-colors flex items-start gap-3';
+export const topbarDropdownItemSelected = 'w-full text-left px-4 py-2.5 hover:bg-mist transition-colors flex items-start gap-3 bg-mist/60';
+export const topbarDropdownItemIcon       = 'shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center bg-mist text-ink-soft group-hover:text-accent';
+export const topbarDropdownItemIconAccent = 'shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center bg-accent text-accent-text';
+
+export const topbarCreateButton   = 'w-full text-left px-3 py-2 rounded-xl hover:bg-mist text-xs font-medium text-accent flex items-center gap-2';
+
+export const topbarFooter         = 'w-full border-t border-border bg-bg/50 backdrop-blur-[10px] mt-16';
+
+export const topbarUserAvatar     = 'w-9 h-9 rounded-full object-cover ring-2 ring-card transition-transform duration-200 group-hover:scale-105';
+export const topbarUserAvatarInit = 'w-9 h-9 rounded-full flex items-center justify-center text-accent-text text-sm font-semibold ring-2 ring-card transition-transform duration-200 group-hover:scale-105';
+
+/* ── 22. Accent-tinted chip / pill ─────────────────────────────────
+ * The reusable "highlighted in accent" chip used in the navbar for
+ * Spurti Points, user-active-program indicator, etc. */
+
+export const accentChip         = 'inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold shadow-sm';
+export const accentChipCompact  = 'inline-flex items-center gap-2 text-[11px] font-medium text-ink-faint bg-card/70 border border-border/60 rounded-full px-3 py-1';
+export const accentDot          = 'w-1.5 h-1.5 rounded-full bg-accent';
+export const accentTextMuted    = 'text-accent/70 font-medium';
