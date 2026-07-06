@@ -512,3 +512,35 @@ export const communityTemplateLabel     = 'text-[10px] font-semibold uppercase t
 export const communityTemplateIcon       = 'shrink-0 mt-1 w-3 h-3 text-ink-faint group-hover:text-warning group-hover:translate-x-0.5 transition-all';
 
 export const communityToastWarn         = 'bg-warning/10 border-warning/30 text-warning';
+
+export const warningDot          = 'w-1.5 h-1.5 rounded-full bg-warning';
+
+export const dangerBannerExtended   = 'rounded-2xl border border-danger/30 bg-danger-light p-6 text-sm text-danger';
+export const dangerPillLight        = 'px-4 py-2.5 rounded-lg text-xs font-medium border bg-danger-light text-danger border-danger/30';
+export const dangerHoverChipSubtle  = 'text-[10px] font-medium uppercase tracking-wider text-ink-soft bg-mist border border-border/60 rounded-md px-2 py-1 hover:bg-danger-light hover:text-danger hover:border-danger/30 disabled:opacity-40 transition-colors';
+
+/* ── 38. Admin chart palette ───────────────────────────────────
+ * Admin charts (Recharts) used raw hex (#8b5cf6 — Tailwind violet-500)
+ * for line/bar/fill colors, which didn't follow the warm-sand
+ * theme and read as a foreign colour against the new Yaksha FAQ
+ * palette. Re-mapped to the accent/warning tokens + dark-mode
+ * neutral text colours that respect the active theme. */
+
+export const adminChartStroke      = 'rgb(var(--accent-rgb))';                 /* line/area/bar stroke */
+export const adminChartFill        = 'rgb(var(--accent-rgb) / 0.35)';          /* area gradient stop */
+export const adminChartFillFade    = 'rgb(var(--accent-rgb) / 0)';             /* area gradient fade */
+export const adminChartGrid        = 'rgb(var(--text-primary-rgb) / 0.04)';    /* gridline */
+export const adminChartAxis        = 'rgb(var(--text-primary-rgb) / 0.25)';    /* axis tick text */
+export const adminChartTooltipBg   = 'rgb(var(--bg-card-rgb) / 0.97)';         /* tooltip background */
+export const adminChartTooltipBord = 'rgb(var(--accent-rgb) / 0.30)';          /* tooltip border */
+export const adminChartTooltipText = 'rgb(var(--accent-rgb))';                 /* tooltip value text */
+export const adminChartCursor      = 'rgb(var(--accent-rgb) / 0.30)';          /* chart cursor (hover line) */
+export const adminChartBg          = 'rgb(var(--text-primary-rgb) / 0.05)';    /* radial background */
+export const adminChartActiveDotFill   = 'rgb(var(--accent-rgb))';
+export const adminChartActiveDotStroke = 'rgb(var(--bg-primary-rgb))';
+export const adminChartProgressFill = 'rgb(var(--accent-rgb))';                /* radial bar fill */
+export const adminLegendApprovedDot = 'rgb(var(--success-rgb))';                /* approved legend dot */
+export const adminLegendPendingDot  = 'rgb(var(--warning-rgb))';                /* pending legend dot */
+export const adminLegendRejectedDot = 'rgb(var(--danger-rgb))';                 /* rejected legend dot */
+export const adminChartPercentText = 'rgb(var(--text-primary-rgb))';            /* big % number */
+export const adminChartSubtleText  = 'rgb(var(--text-primary-rgb) / 0.30)';    /* "resolved" label */
