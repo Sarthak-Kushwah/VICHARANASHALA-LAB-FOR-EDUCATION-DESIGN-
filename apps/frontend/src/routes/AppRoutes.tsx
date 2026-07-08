@@ -57,6 +57,7 @@ const AdminUsers = lazy(() => import('../admin/pages/AdminUsers'));
 const AdminSettings = lazy(() => import('../admin/pages/AdminSettings'));
 const AdminCommunity = lazy(() => import('../admin/pages/AdminCommunity'));
 const AdminModeration = lazy(() => import('../admin/pages/AdminModeration'));
+const AdminKnowledgeGaps = lazy(() => import('../admin/pages/AdminKnowledgeGaps'));
 const AdminUnresolvedSearch = lazy(() => import('../admin/pages/AdminUnresolvedSearch'));
 const AdminZoomMeetings = lazy(() => import('../admin/pages/AdminZoomMeetings'));
 const AdminZoomInsights = lazy(() => import('../admin/pages/AdminZoomInsights'));
@@ -192,6 +193,7 @@ export default function AppRoutes() {
           <Route path="/admin/settings" element={<RouteElement name="admin-settings"><AdminRoute><AdminLayout><AdminSettings /></AdminLayout></AdminRoute></RouteElement>} />
           <Route path="/admin/community" element={<RouteElement name="admin-community"><AdminRoute><AdminLayout><AdminCommunity /></AdminLayout></AdminRoute></RouteElement>} />
           <Route path="/admin/moderation" element={<RouteElement name="admin-moderation"><AdminRoute><AdminLayout><AdminModeration /></AdminLayout></AdminRoute></RouteElement>} />
+          <Route path="/admin/knowledge-gaps" element={<RouteElement name="admin-knowledge-gaps"><AdminRoute><AdminLayout><AdminKnowledgeGaps /></AdminLayout></AdminRoute></RouteElement>} />
           <Route path="/admin/unresolved-search" element={<RouteElement name="admin-unresolved-search"><AdminRoute><AdminLayout><AdminUnresolvedSearch /></AdminLayout></AdminRoute></RouteElement>} />
            <Route path="/admin/zoom-meetings" element={<RouteElement name="admin-zoom-meetings"><AdminRoute><AdminLayout><AdminZoomMeetings /></AdminLayout></AdminRoute></RouteElement>} />
           <Route path="/admin/zoom-insights" element={<RouteElement name="admin-zoom-insights"><AdminRoute><AdminLayout><AdminZoomInsights /></AdminLayout></AdminRoute></RouteElement>} />
